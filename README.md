@@ -1,11 +1,10 @@
-# Plugin Examples
+# 🔌 Plugin
 
-This directory contains example plugins demonstrating how to implement the two plugin types in the Basenana system.
+This is the plugin repository for [NanaFS](https://github.com/basenana/nanafs), providing extensible plugins for
+workflow and file system operations.
 
-## Plugin Types
-
-- [ProcessPlugin Example](#processplugin-example) - `process.go`
-- [SourcePlugin Example](#sourceplugin-example) - `source.go`
+The `process.go` and `source.go` files in the root directory are example implementations demonstrating how to develop
+plugins. All built-in plugins are organized in subdirectories.
 
 ---
 
@@ -19,14 +18,14 @@ This example demonstrates how to implement a `ProcessPlugin` that performs an ac
 
 ```go
 type Plugin interface {
-    Name() string
-    Type() types.PluginType
-    Version() string
+Name() string
+Type() types.PluginType
+Version() string
 }
 
 type ProcessPlugin interface {
-    Plugin
-    Run(ctx context.Context, request *api.Request) (*api.Response, error)
+Plugin
+Run(ctx context.Context, request *api.Request) (*api.Response, error)
 }
 ```
 
@@ -40,14 +39,14 @@ func (d *DelayProcessPlugin) Type() types.PluginType { return types.TypeProcess 
 func (d *DelayProcessPlugin) Version() string { return "1.0" }
 
 func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-    // Get parameters
-    delayStr := api.GetParameter("delay", request, "")
+// Get parameters
+delayStr := api.GetParameter("delay", request, "")
 
-    // Perform action
-    // ...
+// Perform action
+// ...
 
-    // Return response
-    return api.NewResponse(), nil
+// Return response
+return api.NewResponse(), nil
 }
 ```
 
@@ -57,10 +56,10 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 2. **Type()**: Returns `types.TypeProcess` for ProcessPlugin
 3. **Version()**: Returns semantic version string
 4. **Run()**: Main execution method that:
-   - Receives a context and request
-   - Extracts parameters using `api.GetParameter()`
-   - Performs the plugin's action
-   - Returns a response or error
+    - Receives a context and request
+    - Extracts parameters using `api.GetParameter()`
+    - Performs the plugin's action
+    - Returns a response or error
 
 ### Parameter Access
 
@@ -85,8 +84,8 @@ This example demonstrates how to implement a `SourcePlugin` that generates conte
 
 ```go
 type SourcePlugin interface {
-    ProcessPlugin
-    SourceInfo() (string, error)
+ProcessPlugin
+SourceInfo() (string, error)
 }
 ```
 
@@ -101,19 +100,19 @@ func (d *ThreeBodyPlugin) Version() string { return "1.0" }
 
 // SourcePlugin specific method
 func (d *ThreeBodyPlugin) SourceInfo() (string, error) {
-    return "internal.FileGenerator", nil
+return "internal.FileGenerator", nil
 }
 
 // Inherits Run() from ProcessPlugin
 func (d *ThreeBodyPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-    // Generate content/files
-    // ...
+// Generate content/files
+// ...
 
-    // Return result
-    return api.NewResponseWithResult(map[string]any{
-        "file_path": "output.txt",
-        "size":      1024,
-    }), nil
+// Return result
+return api.NewResponseWithResult(map[string]any{
+"file_path": "output.txt",
+"size":      1024,
+}), nil
 }
 ```
 
@@ -135,7 +134,7 @@ api.NewResponse()
 
 // Response with result data
 api.NewResponseWithResult(map[string]any{
-    "key": "value",
+"key": "value",
 })
 ```
 
@@ -143,102 +142,4 @@ api.NewResponseWithResult(map[string]any{
 
 ```go
 api.NewFailedResponse("error message")
-```
-
----
-
-## Example: DelayProcessPlugin (Full Implementation)
-
-```go
-package plugin
-
-import (
-    "context"
-    "fmt"
-    "time"
-    "github.com/basenana/plugin/api"
-    "github.com/basenana/plugin/types"
-)
-
-type DelayProcessPlugin struct{}
-
-func (d *DelayProcessPlugin) Name() string    { return "delay" }
-func (d *DelayProcessPlugin) Type() types.PluginType { return types.TypeProcess }
-func (d *DelayProcessPlugin) Version() string { return "1.0" }
-
-func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-    delayStr := api.GetParameter("delay", request, "")
-    untilStr := api.GetParameter("until", request, "")
-
-    var until time.Time
-    switch {
-    case delayStr != "":
-        duration, _ := time.ParseDuration(delayStr)
-        until = time.Now().Add(duration)
-    case untilStr != "":
-        until, _ = time.Parse(untilStr, time.RFC3339)
-    default:
-        return api.NewFailedResponse("unknown action"), nil
-    }
-
-    if time.Now().Before(until) {
-        timer := time.NewTimer(until.Sub(time.Now()))
-        defer timer.Stop()
-        select {
-        case <-timer.C:
-            return api.NewResponse(), nil
-        case <-ctx.Done():
-            return api.NewFailedResponse(ctx.Err().Error()), nil
-        }
-    }
-
-    return api.NewResponse(), nil
-}
-```
-
----
-
-## Example: ThreeBodyPlugin (Full Implementation)
-
-```go
-package plugin
-
-import (
-    "context"
-    "fmt"
-    "os"
-    "path"
-    "time"
-    "github.com/basenana/plugin/api"
-    "github.com/basenana/plugin/types"
-)
-
-type ThreeBodyPlugin struct{}
-
-func (d *ThreeBodyPlugin) Name() string    { return "three_body" }
-func (d *ThreeBodyPlugin) Type() types.PluginType { return types.TypeSource }
-func (d *ThreeBodyPlugin) Version() string { return "1.0" }
-func (d *ThreeBodyPlugin) SourceInfo() (string, error) {
-    return "internal.FileGenerator", nil
-}
-
-func (d *ThreeBodyPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-    if request.WorkingPath == "" {
-        return nil, fmt.Errorf("workdir is empty")
-    }
-
-    timestamp := time.Now().Unix()
-    filePath := path.Join(request.WorkingPath, fmt.Sprintf("3_body_%d.txt", timestamp))
-    fileData := []byte(fmt.Sprintf("%d - Do not answer!\n", timestamp))
-
-    err := os.WriteFile(filePath, fileData, 0655)
-    if err != nil {
-        return api.NewFailedResponse(fmt.Sprintf("file generate failed: %s", err)), nil
-    }
-
-    return api.NewResponseWithResult(map[string]any{
-        "file_path": path.Base(filePath),
-        "size":      int64(len(fileData)),
-    }), nil
-}
 ```
