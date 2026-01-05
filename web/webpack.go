@@ -161,3 +161,7 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 func NewWebpackPlugin() *WebpackPlugin {
 	return &WebpackPlugin{}
 }
+
+var (
+	enablePrivateNet = os.Getenv("WebPackerEnablePrivateNet") == "true"
+)
