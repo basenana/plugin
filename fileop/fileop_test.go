@@ -60,7 +60,7 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "cp",
 			"src":    srcFile,
 			"dest":   destFile,
@@ -98,7 +98,7 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "mv",
 			"src":    srcFile,
 			"dest":   destFile,
@@ -143,7 +143,7 @@ func TestFileOpPlugin_Run_Remove(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "rm",
 			"src":    srcFile,
 		},
@@ -176,7 +176,7 @@ func TestFileOpPlugin_Run_Rename(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "rename",
 			"src":    srcFile,
 			"dest":   destFile,
@@ -205,7 +205,7 @@ func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"src": "somefile.txt",
 		},
 	}
@@ -227,7 +227,7 @@ func TestFileOpPlugin_Run_UnknownAction(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "unknown",
 			"src":    "somefile.txt",
 		},

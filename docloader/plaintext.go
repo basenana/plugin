@@ -36,58 +36,58 @@ func NewText(docPath string, option map[string]string) Parser {
 	return Text{docPath: docPath}
 }
 
-func (l Text) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, error) {
+func (l Text) Load(_ context.Context) (types.Document, error) {
 	f, err := os.Open(l.docPath)
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 	defer f.Close()
 
 	buf := new(bytes.Buffer)
 	if _, err := io.Copy(buf, f); err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 
-	doc = extractFileNameMetadata(l.docPath, doc)
-	doc = extractTextContentMetadata(buf.String(), doc)
+	props := extractFileNameMetadata(l.docPath)
+	props = extractTextContentMetadata(buf.String(), props)
 
-	if doc.PublishAt == 0 {
+	if props.PublishAt == 0 {
 		if info, err := os.Stat(l.docPath); err == nil {
-			doc.PublishAt = info.ModTime().Unix()
+			props.PublishAt = info.ModTime().Unix()
 		}
 	}
 
-	return &FDocument{
-		Content:            buf.String(),
-		DocumentProperties: doc,
+	return types.Document{
+		Content:    buf.String(),
+		Properties: props,
 	}, nil
 }
 
-func extractTextContentMetadata(content string, doc types.DocumentProperties) types.DocumentProperties {
+func extractTextContentMetadata(content string, props types.Properties) types.Properties {
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 {
-		return doc
+		return props
 	}
 
-	if doc.Title == "" {
+	if props.Title == "" {
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
 			if strings.HasPrefix(line, "# ") {
-				doc.Title = strings.TrimSpace(strings.TrimPrefix(line, "# "))
+				props.Title = strings.TrimSpace(strings.TrimPrefix(line, "# "))
 				break
 			}
 			if len(line) < 100 && !strings.ContainsAny(line, " \t") {
 				continue
 			}
-			doc.Title = line
+			props.Title = line
 			break
 		}
 	}
 
-	if doc.Abstract == "" {
+	if props.Abstract == "" {
 		var paragraphs []string
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
@@ -106,9 +106,9 @@ func extractTextContentMetadata(content string, doc types.DocumentProperties) ty
 			}
 		}
 		if len(paragraphs) > 0 {
-			doc.Abstract = strings.Join(paragraphs, "\n")
+			props.Abstract = strings.Join(paragraphs, "\n")
 		}
 	}
 
-	return doc
+	return props
 }

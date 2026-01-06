@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -33,4 +34,11 @@ var (
 func SafetyFilePathJoin(parent, filename string) string {
 	safeFilename := fileNameSafety.ReplaceAllString(filename, " ")
 	return path.Clean(path.Join(parent, safeFilename))
+}
+
+func AbsFilePath(workdir, filePath string) string {
+	if strings.HasPrefix(filePath, workdir) {
+		return filePath
+	}
+	return path.Join(workdir, filePath)
 }

@@ -61,8 +61,8 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 	var (
 		until            time.Time
 		nowTime          = time.Now()
-		delayDurationStr = api.GetParameter("delay", request, "")
-		untilStr         = api.GetParameter("until", request, "")
+		delayDurationStr = api.GetStringParameter("delay", request, "")
+		untilStr         = api.GetStringParameter("until", request, "")
 	)
 
 	switch {

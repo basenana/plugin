@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/basenana/plugin/api"
 )
 
 func TestMetadataPlugin_Name(t *testing.T) {
@@ -58,7 +60,7 @@ func TestMetadataPlugin_Run_File(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testFile,
 		},
 	}
@@ -102,7 +104,7 @@ func TestMetadataPlugin_Run_Directory(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testDir,
 		},
 	}
@@ -129,7 +131,7 @@ func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": "/nonexistent/file.txt",
 		},
 	}
@@ -151,7 +153,7 @@ func TestMetadataPlugin_Run_MissingFilePath(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{},
+		Parameter: map[string]any{},
 	}
 
 	resp, err := p.Run(ctx, req)

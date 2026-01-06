@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/types"
 )
 
 const (
@@ -49,7 +52,7 @@ func (p *MetadataPlugin) Version() string {
 }
 
 func (p *MetadataPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	filePath := api.GetParameter("file_path", request, "")
+	filePath := api.GetStringParameter("file_path", request, "")
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil
 	}

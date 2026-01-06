@@ -1,6 +1,6 @@
-# SavePlugin
+# FileWritePlugin
 
-Saves content to a file at the specified path.
+Writes content to a file at the specified path.
 
 ## Type
 ProcessPlugin
@@ -9,7 +9,7 @@ ProcessPlugin
 1.0
 
 ## Name
-`save`
+`filewrite`
 
 ## Parameters
 
@@ -32,14 +32,14 @@ On failure, returns an error message.
 ## Usage Example
 
 ```yaml
-# Save content to a file with default permissions
-- name: save
+# Write content to a file with default permissions
+- name: filewrite
   parameters:
     content: "Hello, World!"
     dest_path: "/path/to/output.txt"
 
-# Save with custom permissions
-- name: save
+# Write with custom permissions
+- name: filewrite
   parameters:
     content: "#!/bin/bash\necho 'Hello'"
     dest_path: "/path/to/script.sh"

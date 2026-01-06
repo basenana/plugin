@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package save
+package filewrite
 
 import (
 	"context"
@@ -25,36 +25,36 @@ import (
 	"github.com/basenana/plugin/api"
 )
 
-func TestSavePlugin_Name(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Name(t *testing.T) {
+	p := &FileWritePlugin{}
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
-func TestSavePlugin_Type(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Type(t *testing.T) {
+	p := &FileWritePlugin{}
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
-func TestSavePlugin_Version(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Version(t *testing.T) {
+	p := &FileWritePlugin{}
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
-func TestSavePlugin_Run_SaveContent(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
 	destFile := filepath.Join(tmpDir, "test.txt")
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content":   "hello world",
 			"dest_path": destFile,
 			"mode":      "0644",
@@ -78,15 +78,15 @@ func TestSavePlugin_Run_SaveContent(t *testing.T) {
 	}
 }
 
-func TestSavePlugin_Run_DefaultMode(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
 	destFile := filepath.Join(tmpDir, "test.txt")
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content":   "hello world",
 			"dest_path": destFile,
 		},
@@ -109,15 +109,15 @@ func TestSavePlugin_Run_DefaultMode(t *testing.T) {
 	}
 }
 
-func TestSavePlugin_Run_CreateParentDir(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
 	destFile := filepath.Join(tmpDir, "subdir", "nested", "test.txt")
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content":   "nested content",
 			"dest_path": destFile,
 		},
@@ -140,12 +140,12 @@ func TestSavePlugin_Run_CreateParentDir(t *testing.T) {
 	}
 }
 
-func TestSavePlugin_Run_MissingDestPath(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content": "hello world",
 		},
 	}
@@ -162,15 +162,15 @@ func TestSavePlugin_Run_MissingDestPath(t *testing.T) {
 	}
 }
 
-func TestSavePlugin_Run_InvalidMode(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
 	destFile := filepath.Join(tmpDir, "test.txt")
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content":   "hello world",
 			"dest_path": destFile,
 			"mode":      "invalid",
@@ -186,15 +186,15 @@ func TestSavePlugin_Run_InvalidMode(t *testing.T) {
 	}
 }
 
-func TestSavePlugin_Run_EmptyContent(t *testing.T) {
-	p := &SavePlugin{}
+func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
+	p := &FileWritePlugin{}
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
 	destFile := filepath.Join(tmpDir, "empty.txt")
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content":   "",
 			"dest_path": destFile,
 		},

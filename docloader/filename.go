@@ -27,13 +27,15 @@ import (
 
 var (
 	fileNamePatterns = []*regexp.Regexp{
-		regexp.MustCompile(`^(.+)_([^_]+)_(\d{4})$`),
-		regexp.MustCompile(`^(.+)[-_](.+)[- ]\((\d{4})\)$`),
+		regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9 _-]*)_([a-zA-Z0-9][a-zA-Z0-9 _-]*)_(\d{4})$`),
+		regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9 _-]*)[-_]([a-zA-Z][a-zA-Z0-9 _-]*) +\((\d{4})\)$`),
+		regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9 _-]*) +- +([a-zA-Z][a-zA-Z0-9 _-]*) +\((\d{4})\)$`),
 	}
 	yearRegex = regexp.MustCompile(`(\d{4})`)
 )
 
-func extractFileNameMetadata(docPath string, doc types.DocumentProperties) types.DocumentProperties {
+func extractFileNameMetadata(docPath string) types.Properties {
+	props := types.Properties{}
 	baseName := filepath.Base(docPath)
 	ext := filepath.Ext(baseName)
 	nameWithoutExt := strings.TrimSuffix(baseName, ext)
@@ -41,28 +43,28 @@ func extractFileNameMetadata(docPath string, doc types.DocumentProperties) types
 	for _, re := range fileNamePatterns {
 		matches := re.FindStringSubmatch(nameWithoutExt)
 		if matches != nil && len(matches) >= 4 {
-			if doc.Author == "" {
-				doc.Author = strings.TrimSpace(matches[1])
+			if props.Author == "" {
+				props.Author = strings.TrimSpace(matches[1])
 			}
-			if doc.Title == "" {
-				doc.Title = strings.TrimSpace(matches[2])
+			if props.Title == "" {
+				props.Title = strings.TrimSpace(matches[2])
 			}
-			if doc.Year == "" {
+			if props.Year == "" {
 				if _, err := strconv.Atoi(matches[3]); err == nil {
-					doc.Year = matches[3]
+					props.Year = matches[3]
 				}
 			}
 			break
 		}
 	}
 
-	if doc.Year == "" {
+	if props.Year == "" {
 		if matches := yearRegex.FindStringSubmatch(nameWithoutExt); matches != nil {
 			if _, err := strconv.Atoi(matches[1]); err == nil {
-				doc.Year = matches[1]
+				props.Year = matches[1]
 			}
 		}
 	}
 
-	return doc
+	return props
 }

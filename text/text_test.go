@@ -49,7 +49,7 @@ func TestTextPlugin_Run_Search_Found(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":  "search",
 			"content": "hello world",
 			"pattern": "world",
@@ -73,7 +73,7 @@ func TestTextPlugin_Run_Search_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":  "search",
 			"content": "hello world",
 			"pattern": "foo",
@@ -97,7 +97,7 @@ func TestTextPlugin_Run_Replace(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":      "replace",
 			"content":     "hello world",
 			"pattern":     "world",
@@ -122,7 +122,7 @@ func TestTextPlugin_Run_ReplaceAll(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":      "replace",
 			"content":     "foo bar foo baz foo",
 			"pattern":     "foo",
@@ -147,7 +147,7 @@ func TestTextPlugin_Run_Regex(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":  "regex",
 			"content": "email: test@example.com",
 			"pattern": `[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`,
@@ -171,7 +171,7 @@ func TestTextPlugin_Run_Split(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":    "split",
 			"content":   "apple,banana,orange",
 			"delimiter": ",",
@@ -203,7 +203,7 @@ func TestTextPlugin_Run_Split_TrimSpaces(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":    "split",
 			"content":   "  apple  ,  banana  ,  orange  ",
 			"delimiter": ",",
@@ -235,7 +235,7 @@ func TestTextPlugin_Run_Join(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":    "join",
 			"items":     "apple,banana,orange",
 			"delimiter": "|",
@@ -259,7 +259,7 @@ func TestTextPlugin_Run_MissingAction(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"content": "hello world",
 		},
 	}
@@ -281,7 +281,7 @@ func TestTextPlugin_Run_UnknownAction(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":  "unknown",
 			"content": "hello world",
 		},
@@ -304,7 +304,7 @@ func TestTextPlugin_Run_Replace_MissingPattern(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":      "replace",
 			"content":     "hello world",
 			"replacement": "go",
@@ -328,7 +328,7 @@ func TestTextPlugin_Run_Split_MissingDelimiter(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":  "split",
 			"content": "apple,banana,orange",
 		},
@@ -351,7 +351,7 @@ func TestTextPlugin_Run_Join_MissingDelimiter(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action": "join",
 			"items":  "apple,banana,orange",
 		},
@@ -374,7 +374,7 @@ func TestTextPlugin_Run_CustomResultKey(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"action":      "replace",
 			"content":     "hello world",
 			"pattern":     "world",

@@ -52,9 +52,9 @@ func (p *FileOpPlugin) Version() string {
 }
 
 func (p *FileOpPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	action := api.GetParameter("action", request, "")
-	src := api.GetParameter("src", request, "")
-	dest := api.GetParameter("dest", request, "")
+	action := api.GetStringParameter("action", request, "")
+	src := api.GetStringParameter("src", request, "")
+	dest := api.GetStringParameter("dest", request, "")
 
 	if action == "" {
 		return api.NewFailedResponse("action is required"), nil

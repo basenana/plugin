@@ -28,15 +28,29 @@ SourcePlugin
   "articles": [
     {
       "file_path": "<filename>",
-      "size": <bytes>,
+      "size": <file-size-in-bytes>,
       "title": "<article-title>",
       "url": "<article-url>",
+      "site_url": "<site-url>",
+      "site_name": "<site-name>",
       "updated_at": "<RFC3339-timestamp>"
     },
     ...
   ]
 }
 ```
+
+### Article Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file_path` | string | Filename of the archived article |
+| `size` | int64 | File size in bytes |
+| `title` | string | Article title |
+| `url` | string | Original article URL |
+| `site_url` | string | Site URL of the feed |
+| `site_name` | string | Site name of the feed |
+| `updated_at` | string | Publication/update time in RFC3339 format |
 
 ## File Type Formats
 

@@ -25,6 +25,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/types"
@@ -33,6 +35,7 @@ import (
 const (
 	pluginName    = "archive"
 	pluginVersion = "1.0"
+	unixDIR       = syscall.S_IFDIR
 )
 
 var PluginSpec = types.PluginSpec{
@@ -56,9 +59,18 @@ func (p *ArchivePlugin) Version() string {
 }
 
 func (p *ArchivePlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	filePath := api.GetParameter("file_path", request, "")
-	format := api.GetParameter("format", request, "")
-	destPath := api.GetParameter("dest_path", request, "")
+	action := api.GetStringParameter("action", request, "extract")
+	format := api.GetStringParameter("format", request, "")
+
+	if action == "compress" {
+		return p.runCompress(request, format)
+	}
+	return p.runExtract(request, format)
+}
+
+func (p *ArchivePlugin) runExtract(request *api.Request, format string) (*api.Response, error) {
+	filePath := api.GetStringParameter("file_path", request, "")
+	destPath := api.GetStringParameter("dest_path", request, "")
 
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil
@@ -74,7 +86,7 @@ func (p *ArchivePlugin) Run(ctx context.Context, request *api.Request) (*api.Res
 
 	// Ensure destination directory exists
 	if err := os.MkdirAll(destPath, 0755); err != nil {
-		return api.NewFailedResponse(fmt.Sprintf("create dest directory failed: %w", err)), nil
+		return api.NewFailedResponse(fmt.Sprintf("create dest directory failed: %v", err)), nil
 	}
 
 	var err error
@@ -96,12 +108,92 @@ func (p *ArchivePlugin) Run(ctx context.Context, request *api.Request) (*api.Res
 	return api.NewResponse(), nil
 }
 
+func (p *ArchivePlugin) runCompress(request *api.Request, format string) (*api.Response, error) {
+	sourcePath := api.GetStringParameter("source_path", request, "")
+	archiveName := api.GetStringParameter("archive_name", request, "")
+	destPath := api.GetStringParameter("dest_path", request, "")
+
+	if sourcePath == "" {
+		return api.NewFailedResponse("source_path is required for compression"), nil
+	}
+
+	if format == "" {
+		return api.NewFailedResponse("format is required"), nil
+	}
+
+	if destPath == "" {
+		destPath = "."
+	}
+
+	// Ensure destination directory exists
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		return api.NewFailedResponse(fmt.Sprintf("create dest directory failed: %v", err)), nil
+	}
+
+	// Generate archive name if not provided
+	if archiveName == "" {
+		archiveName = generateArchiveName(sourcePath, format)
+	}
+	archivePath := filepath.Join(destPath, archiveName)
+
+	var err error
+	switch format {
+	case "zip":
+		err = createZip(sourcePath, archivePath)
+	case "tar":
+		err = createTar(sourcePath, archivePath)
+	case "gzip":
+		err = createGzip(sourcePath, archivePath)
+	default:
+		return api.NewFailedResponse(fmt.Sprintf("unsupported format: %s (supported: zip, tar, gzip)", format)), nil
+	}
+
+	if err != nil {
+		return api.NewFailedResponse(err.Error()), nil
+	}
+
+	// Return archive info
+	info, err := os.Stat(archivePath)
+	if err != nil {
+		return api.NewResponse(), nil
+	}
+
+	return api.NewResponseWithResult(map[string]any{
+		"file_path": archivePath,
+		"size":      info.Size(),
+	}), nil
+}
+
+func generateArchiveName(sourcePath, format string) string {
+	baseName := filepath.Base(sourcePath)
+	switch format {
+	case "zip":
+		if !strings.HasSuffix(baseName, ".zip") {
+			return baseName + ".zip"
+		}
+	case "tar":
+		if !strings.HasSuffix(baseName, ".tar.gz") && !strings.HasSuffix(baseName, ".tgz") {
+			return baseName + ".tar.gz"
+		}
+	case "gzip":
+		if !strings.HasSuffix(baseName, ".gz") {
+			return baseName + ".gz"
+		}
+	}
+	return baseName
+}
+
 func extractZip(src, dest string) error {
 	reader, err := zip.OpenReader(src)
 	if err != nil {
 		return fmt.Errorf("open zip file failed: %w", err)
 	}
 	defer reader.Close()
+
+	// Ensure base destination directory exists
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return fmt.Errorf("create dest directory failed: %w", err)
+	}
 
 	for _, file := range reader.File {
 		path := filepath.Join(dest, file.Name)
@@ -113,11 +205,14 @@ func extractZip(src, dest string) error {
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		// Ensure parent directory exists
+		parentDir := filepath.Dir(path)
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
 			return fmt.Errorf("create parent directory failed: %w", err)
 		}
 
-		destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		// Use 0644 permissions to ensure write access
+		destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
 			return fmt.Errorf("create file failed: %w", err)
 		}
@@ -208,14 +303,19 @@ func extractGzip(src, dest string) error {
 	defer gzipReader.Close()
 
 	// Determine output filename (remove .gz extension)
-	outputName := src
-	if len(outputName) > 3 && outputName[len(outputName)-3:] == ".gz" {
-		outputName = outputName[:len(outputName)-3]
-	} else if len(outputName) > 7 && outputName[len(outputName)-7:] == ".tgz" {
-		outputName = outputName[:len(outputName)-3] + "tar"
+	baseName := filepath.Base(src)
+	if strings.HasSuffix(baseName, ".tgz") {
+		baseName = baseName[:len(baseName)-3] + "tar"
+	} else if strings.HasSuffix(baseName, ".gz") {
+		baseName = baseName[:len(baseName)-3]
 	}
 
-	outputPath := filepath.Join(dest, filepath.Base(outputName))
+	outputPath := filepath.Join(dest, baseName)
+
+	// Ensure destination directory exists
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return fmt.Errorf("create dest directory failed: %w", err)
+	}
 
 	destFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -233,4 +333,200 @@ func extractGzip(src, dest string) error {
 
 func NewArchivePlugin() *ArchivePlugin {
 	return &ArchivePlugin{}
+}
+
+// Compression functions
+
+func createZip(src, dest string) error {
+	// Determine if src is file or directory
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stat source failed: %w", err)
+	}
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create zip file failed: %w", err)
+	}
+	defer destFile.Close()
+
+	zipWriter := zip.NewWriter(destFile)
+	defer zipWriter.Close()
+
+	if info.IsDir() {
+		return walkAndZip(src, "", zipWriter)
+	}
+	return addFileToZip(src, filepath.Base(src), zipWriter)
+}
+
+func walkAndZip(root, baseDir string, zw *zip.Writer) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		if baseDir != "" {
+			relPath = filepath.Join(baseDir, relPath)
+		}
+
+		if info.IsDir() {
+			// Add directory entry to zip with proper Unix permissions
+			relPath = relPath + "/"
+			header := &zip.FileHeader{
+				Name:     relPath,
+				Method:   zip.Deflate,
+				ExternalAttrs: (uint32(info.Mode()) << 16) | unixDIR,
+			}
+			_, err := zw.CreateHeader(header)
+			if err != nil {
+				return fmt.Errorf("create zip directory entry failed: %w", err)
+			}
+			return nil
+		}
+
+		return addFileToZip(path, relPath, zw)
+	})
+}
+
+func addFileToZip(filePath, zipPath string, zw *zip.Writer) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open file failed: %w", err)
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat file failed: %w", err)
+	}
+
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return fmt.Errorf("create zip header failed: %w", err)
+	}
+	header.Name = zipPath
+	header.Method = zip.Deflate
+
+	writer, err := zw.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("create zip entry failed: %w", err)
+	}
+
+	_, err = io.Copy(writer, file)
+	return err
+}
+
+func createTar(src, dest string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stat source failed: %w", err)
+	}
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create tar file failed: %w", err)
+	}
+	defer destFile.Close()
+
+	gzipWriter := gzip.NewWriter(destFile)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	if info.IsDir() {
+		return walkAndTar(src, "", tarWriter)
+	}
+	return addFileToTar(src, filepath.Base(src), tarWriter)
+}
+
+func walkAndTar(root, baseDir string, tw *tar.Writer) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+
+		if baseDir != "" {
+			relPath = filepath.Join(baseDir, relPath)
+		}
+
+		if info.IsDir() {
+			header, err := tar.FileInfoHeader(info, "")
+			if err != nil {
+				return err
+			}
+			header.Name = relPath + "/"
+			if err := tw.WriteHeader(header); err != nil {
+				return fmt.Errorf("write tar header failed: %w", err)
+			}
+			return nil
+		}
+
+		return addFileToTar(path, relPath, tw)
+	})
+}
+
+func addFileToTar(filePath, tarPath string, tw *tar.Writer) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open file failed: %w", err)
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	header, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return fmt.Errorf("create tar header failed: %w", err)
+	}
+	header.Name = tarPath
+
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("write tar header failed: %w", err)
+	}
+
+	_, err = io.Copy(tw, file)
+	return err
+}
+
+func createGzip(src, dest string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("stat source failed: %w", err)
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("gzip compression only supports single files, not directories")
+	}
+
+	file, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open file failed: %w", err)
+	}
+	defer file.Close()
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create gzip file failed: %w", err)
+	}
+	defer destFile.Close()
+
+	gzipWriter := gzip.NewWriter(destFile)
+	defer gzipWriter.Close()
+
+	_, err = io.Copy(gzipWriter, file)
+	return err
 }

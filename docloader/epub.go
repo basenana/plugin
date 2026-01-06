@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/basenana/plugin/types"
@@ -39,10 +40,10 @@ func NewEPUB(docPath string, option map[string]string) Parser {
 	return EPUB{docPath: docPath}
 }
 
-func (e EPUB) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, error) {
+func (e EPUB) Load(_ context.Context) (types.Document, error) {
 	r, err := zip.OpenReader(e.docPath)
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 	defer r.Close()
 
@@ -79,26 +80,26 @@ func (e EPUB) Load(_ context.Context, doc types.DocumentProperties) (*FDocument,
 	}
 
 	if opfPath == "" {
-		return nil, fmt.Errorf("EPUB: could not find OPF file")
+		return types.Document{}, fmt.Errorf("EPUB: could not find OPF file")
 	}
 
 	for _, file := range r.File {
 		if file.Name == opfPath {
 			rc, err := file.Open()
 			if err != nil {
-				return nil, fmt.Errorf("EPUB: failed to open OPF file: %w", err)
+				return types.Document{}, fmt.Errorf("EPUB: failed to open OPF file: %w", err)
 			}
 			opfData, err = io.ReadAll(rc)
 			rc.Close()
 			if err != nil {
-				return nil, fmt.Errorf("EPUB: failed to read OPF file: %w", err)
+				return types.Document{}, fmt.Errorf("EPUB: failed to read OPF file: %w", err)
 			}
 			break
 		}
 	}
 
 	if opfData == nil {
-		return nil, fmt.Errorf("EPUB: OPF file not found")
+		return types.Document{}, fmt.Errorf("EPUB: OPF file not found")
 	}
 
 	var pkg struct {
@@ -122,48 +123,48 @@ func (e EPUB) Load(_ context.Context, doc types.DocumentProperties) (*FDocument,
 		} `xml:"spine"`
 	}
 	if err := xml.Unmarshal(opfData, &pkg); err != nil {
-		return nil, fmt.Errorf("EPUB: failed to parse OPF file: %w", err)
+		return types.Document{}, fmt.Errorf("EPUB: failed to parse OPF file: %w", err)
 	}
 
-	mapping := map[string]string{
-		"title":       "Title",
-		"creator":     "Author",
-		"description": "Abstract",
-		"subject":     "Keywords",
-		"publisher":   "Source",
-		"date":        "PublishAt",
-	}
+	props := types.Properties{}
 
 	for _, elem := range pkg.Metadata.DC {
-		if fieldName, ok := mapping[elem.Name]; ok {
-			text := strings.TrimSpace(elem.Text)
-			if text == "" {
-				continue
+		text := strings.TrimSpace(elem.Text)
+		if text == "" {
+			continue
+		}
+
+		switch elem.Name {
+		case "title":
+			if props.Title == "" {
+				props.Title = text
 			}
-			switch fieldName {
-			case "Title":
-				if doc.Title == "" {
-					doc.Title = text
+		case "creator":
+			if props.Author == "" {
+				props.Author = text
+			}
+		case "description":
+			if props.Abstract == "" {
+				props.Abstract = text
+			}
+		case "subject":
+			var keywords []string
+			for _, k := range regexp.MustCompile(`[,;]`).Split(text, -1) {
+				k = strings.TrimSpace(k)
+				if k != "" {
+					keywords = append(keywords, k)
 				}
-			case "Author":
-				if doc.Author == "" {
-					doc.Author = text
-				}
-			case "Abstract":
-				if doc.Abstract == "" {
-					doc.Abstract = text
-				}
-			case "Keywords":
-				for _, k := range regexp.MustCompile(`[,;]`).Split(text, -1) {
-					k = strings.TrimSpace(k)
-					if k != "" {
-						doc.Keywords = append(doc.Keywords, k)
-					}
-				}
-			case "Source":
-				if doc.Source == "" {
-					doc.Source = text
-				}
+			}
+			if len(keywords) > 0 {
+				props.Keywords = keywords
+			}
+		case "publisher":
+			if props.Source == "" {
+				props.Source = text
+			}
+		case "date":
+			if t, err := strconv.ParseInt(text, 10, 64); err == nil && props.PublishAt == 0 {
+				props.PublishAt = t
 			}
 		}
 	}
@@ -199,15 +200,15 @@ func (e EPUB) Load(_ context.Context, doc types.DocumentProperties) (*FDocument,
 		}
 	}
 
-	if doc.PublishAt == 0 {
+	if props.PublishAt == 0 {
 		if info, err := os.Stat(e.docPath); err == nil {
-			doc.PublishAt = info.ModTime().Unix()
+			props.PublishAt = info.ModTime().Unix()
 		}
 	}
 
-	return &FDocument{
-		Content:            content.String(),
-		DocumentProperties: doc,
+	return types.Document{
+		Content:    content.String(),
+		Properties: props,
 	}, nil
 }
 

@@ -1,6 +1,11 @@
 package types
 
-type DocumentProperties struct {
+type Document struct {
+	Content    string     `json:"content"`
+	Properties Properties `json:"properties"`
+}
+
+type Properties struct {
 	Title string `json:"title"`
 
 	// papers
@@ -15,9 +20,9 @@ type DocumentProperties struct {
 
 	// web
 	URL         string `json:"url,omitempty"`
-	HeaderImage string `json:"headerImage,omitempty"`
+	HeaderImage string `json:"header_image,omitempty"`
 
 	Unread    bool  `json:"unread"`
 	Marked    bool  `json:"marked"`
-	PublishAt int64 `json:"publishAt,omitempty"`
+	PublishAt int64 `json:"publish_at,omitempty"`
 }

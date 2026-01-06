@@ -35,11 +35,8 @@ const (
 	WebpackPluginName    = "webpack"
 	WebpackPluginVersion = "1.0"
 
-	packerPostMetaURL   = "org.basenana.web.url"
-	packerPostMetaTitle = "org.basenana.web.title"
-
-	webpackParameterFilename    = "filename"
-	webpackParameterFileType    = "fileType"
+	webpackParameterFileName    = "file_name"
+	webpackParameterFileType    = "file_type"
 	webpackParameterURL         = "url"
 	webpackParameterClutterFree = "clutter_free"
 )
@@ -67,10 +64,10 @@ func (w *WebpackPlugin) Version() string {
 func (w *WebpackPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	var (
 		workdir     = request.WorkingPath
-		filename    = api.GetParameter(webpackParameterFilename, request, "")
-		urlInfo     = api.GetParameter(webpackParameterURL, request, "")
-		fileType    = api.GetParameter(webpackParameterFileType, request, "webarchive")
-		clutterFree = strings.ToLower(api.GetParameter(webpackParameterClutterFree, request, "true")) == "true"
+		filename    = api.GetStringParameter(webpackParameterFileName, request, "")
+		urlInfo     = api.GetStringParameter(webpackParameterURL, request, "")
+		fileType    = api.GetStringParameter(webpackParameterFileType, request, "webarchive")
+		clutterFree = api.GetBoolParameter(webpackParameterClutterFree, request, true)
 		filePath    = path.Join(workdir, filename)
 		log         = logger.NewLogger(WebpackPluginName)
 	)
@@ -151,10 +148,10 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 		return nil, fmt.Errorf("stat archive file error: %s", err)
 	}
 	return map[string]any{
-		"file_path":         filename,
-		"size":              fInfo.Size(),
-		packerPostMetaTitle: title,
-		packerPostMetaURL:   urlInfo,
+		"file_path": filename,
+		"size":      fInfo.Size(),
+		"title":     title,
+		"url":       urlInfo,
 	}, nil
 }
 

@@ -63,6 +63,16 @@ var RssSourcePluginSpec = types.PluginSpec{
 
 type RssSourcePlugin struct{}
 
+type Article struct {
+	FilePath  string `json:"file_path"`
+	Size      int64  `json:"size"`
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	SiteURL   string `json:"site_url"`
+	SiteName  string `json:"site_name"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 func (r *RssSourcePlugin) Name() string {
 	return RssSourcePluginName
 }
@@ -84,18 +94,23 @@ func (r *RssSourcePlugin) Run(ctx context.Context, request *api.Request) (*api.R
 	}
 	log.Infow("syncing rss", "feed", source.FeedUrl)
 
-	result, err := r.syncRssSource(ctx, source, request.WorkingPath, log)
+	articles, err := r.syncRssSource(ctx, source, request.WorkingPath, log)
 	if err != nil {
 		log.Warnw("sync rss failed", "source", source.FeedUrl, "err", err)
 		return api.NewFailedResponse(fmt.Sprintf("sync rss failed: %s", err)), nil
 	}
 
-	resp := api.NewResponseWithResult(result)
+	articleMaps := make([]map[string]interface{}, len(articles))
+	for i := range articles {
+		articleMaps[i] = utils.MarshalMap(articles[i])
+	}
+
+	resp := api.NewResponseWithResult(map[string]any{"articles": articleMaps})
 	return resp, nil
 }
 
 func (r *RssSourcePlugin) rssSources(request *api.Request, logger *zap.SugaredLogger) (src rssSource, err error) {
-	src.FeedUrl = request.Parameter["feed"]
+	src.FeedUrl = api.GetStringParameter(rssParameterFeed, request, "")
 	if src.FeedUrl == "" {
 		err = fmt.Errorf("feed url is empty")
 		return
@@ -107,36 +122,29 @@ func (r *RssSourcePlugin) rssSources(request *api.Request, logger *zap.SugaredLo
 		return
 	}
 
-	src.FileType = request.Parameter["file_type"]
-	if src.FileType == "" {
-		src.FileType = archiveFileTypeWebArchive
-	}
+	src.FileType = api.GetStringParameter(rssParameterFileType, request, archiveFileTypeWebArchive)
 
-	timeoutStr := request.Parameter["timeout"]
-	if timeoutStr == "" {
-		timeoutStr = "120"
-	}
+	timeoutStr := api.GetStringParameter(rssParameterTimeout, request, "120")
 	src.Timeout, err = strconv.Atoi(timeoutStr)
 	if err != nil {
 		logger.Warnf("parse timeout error: %s", err)
 		src.Timeout = 120
 	}
 
-	src.ClutterFree = request.Parameter["clutter_free"] == "true" || request.Parameter["clutter_free"] == ""
+	src.ClutterFree = api.GetBoolParameter(rssParameterClutterFree, request, true)
 	src.Headers = make(map[string]string)
 
-	for k, vstr := range request.Parameter {
+	for k := range request.Parameter {
 		if strings.HasPrefix(k, "header_") || strings.HasPrefix(k, "HEADER_") {
-			headerKey := strings.TrimPrefix(k, "header_")
-			headerKey = strings.TrimPrefix(headerKey, "HEADER_")
+			vstr := api.GetStringParameter(k, request, "")
 			src.Headers[k] = vstr
 		}
 	}
-	src.Store = request.ContextStore
+	src.Store = request.Store
 	return
 }
 
-func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource, workdir string, logger *zap.SugaredLogger) (map[string]any, error) {
+func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource, workdir string, logger *zap.SugaredLogger) ([]Article, error) {
 	var nowTime = time.Now()
 	siteURL, err := parseSiteURL(source.FeedUrl)
 	if err != nil {
@@ -158,7 +166,7 @@ func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource, w
 	}
 
 	var (
-		articles = make([]map[string]any, 0)
+		articles = make([]Article, 0)
 		links    []string
 	)
 
@@ -259,12 +267,14 @@ func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource, w
 		}
 
 		links = append(links, item.Link)
-		articles = append(articles, map[string]any{
-			"file_path":  path.Base(filePath),
-			"size":       fInfo.Size(),
-			"title":      item.Title,
-			"url":        item.Link,
-			"updated_at": updatedAt.Format(time.RFC3339),
+		articles = append(articles, Article{
+			FilePath:  path.Base(filePath),
+			Size:      fInfo.Size(),
+			Title:     item.Title,
+			URL:       item.Link,
+			SiteURL:   feed.Link,
+			SiteName:  feed.Title,
+			UpdatedAt: updatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -274,7 +284,7 @@ func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource, w
 
 	logger.Infow("sync rss finish", "entries", len(articles))
 
-	return map[string]any{"articles": articles}, nil
+	return articles, nil
 }
 
 func parseSiteURL(feed string) (string, error) {

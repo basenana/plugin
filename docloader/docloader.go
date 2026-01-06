@@ -25,6 +25,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 )
 
 const (
@@ -40,20 +41,12 @@ var PluginSpec = types.PluginSpec{
 
 type DocLoader struct{}
 
-func (d DocLoader) Name() string {
-	return PluginName
-}
-
-func (d DocLoader) Type() types.PluginType {
-	return types.TypeProcess
-}
-
-func (d DocLoader) Version() string {
-	return PluginVersion
-}
+func (d DocLoader) Name() string           { return PluginName }
+func (d DocLoader) Type() types.PluginType { return types.TypeProcess }
+func (d DocLoader) Version() string        { return PluginVersion }
 
 func (d DocLoader) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	filePath := request.Parameter["file_path"]
+	filePath := api.GetStringParameter("file_path", request, "")
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil
 	}
@@ -65,16 +58,12 @@ func (d DocLoader) Run(ctx context.Context, request *api.Request) (*api.Response
 
 	resp := api.NewResponseWithResult(map[string]any{
 		"file_path": filePath,
-		"document": map[string]any{
-			"title":      doc.Title,
-			"content":    doc.Content,
-			"properties": doc.DocumentProperties,
-		},
+		"document":  utils.MarshalMap(doc),
 	})
 	return resp, nil
 }
 
-func (d DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (*FDocument, error) {
+func (d DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (types.Document, error) {
 	var (
 		entryPath   = path.Join(workdir, filePath)
 		fileExt     = filepath.Ext(entryPath)
@@ -94,21 +83,19 @@ func (d DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (
 	case ".epub":
 		p = buildInLoaders[epubParser](entryPath, parseOption)
 	default:
-		return nil, fmt.Errorf("load %s file unsupported", fileExt)
+		return types.Document{}, fmt.Errorf("load %s file unsupported", fileExt)
 	}
 
-	document, err := p.Load(ctx, types.DocumentProperties{})
+	doc, err := p.Load(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("load file %s failed: %w", entryPath, err)
+		return types.Document{}, fmt.Errorf("load file %s failed: %w", entryPath, err)
 	}
 
-	// set default title
-	if document.Title == "" {
-		title := strings.TrimSpace(strings.TrimSuffix(filePath, fileExt))
-		document.Title = title
+	if doc.Properties.Title == "" {
+		doc.Properties.Title = strings.TrimSpace(strings.TrimSuffix(filePath, fileExt))
 	}
 
-	return document, nil
+	return doc, nil
 }
 
 func NewDocLoader() *DocLoader {
@@ -116,7 +103,7 @@ func NewDocLoader() *DocLoader {
 }
 
 type Parser interface {
-	Load(ctx context.Context, doc types.DocumentProperties) (result *FDocument, err error)
+	Load(ctx context.Context) (doc types.Document, err error)
 }
 
 type parserBuilder func(docPath string, docOption map[string]string) Parser
@@ -130,9 +117,3 @@ var (
 		epubParser:       NewEPUB,
 	}
 )
-
-type FDocument struct {
-	types.DocumentProperties
-	Content string
-	Extra   map[string]string
-}

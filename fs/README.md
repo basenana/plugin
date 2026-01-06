@@ -1,0 +1,68 @@
+# fs
+
+File system plugins for NanaFS operations.
+
+## Plugins
+
+### save (Process)
+
+Saves a local file to the NanaFS file system with metadata.
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `file_path` | Yes | - | Path to the local file |
+| `name` | No | filename | Entry name in NanaFS |
+| `parent_uri` | No | - | Parent entry URI |
+| `properties` | No | - | Custom properties map |
+| `document` | No | - | Document struct from docloader |
+
+**Properties fields**:
+- `title` - Entry title
+- `author` - Author name
+- `year` - Publication year
+- `source` - Source/publisher
+- `abstract` - Abstract/summary
+- `notes` - Personal notes
+- `keywords` - Keywords array
+- `url` - Source URL
+- `header_image` - Header image URL
+- `unread` - Mark as unread (default: false)
+- `marked` - Mark as starred (default: false)
+- `publish_at` - Publish timestamp (Unix)
+
+**Example**:
+```json
+{
+    "file_path": "/path/to/document.pdf",
+    "name": "My Document",
+    "parent_uri": "123",
+    "document": {
+        "content": "...",
+        "properties": {
+            "title": "Document Title",
+            "author": "Author Name"
+        }
+    }
+}
+```
+
+### update (Process)
+
+Updates an existing entry in NanaFS.
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `entry_uri` | Yes | - | Entry URI (numeric ID) |
+| `properties` | No | - | Custom properties map |
+| `document` | No | - | Document struct from docloader |
+
+**Example**:
+```json
+{
+    "entry_uri": "123",
+    "properties": {
+        "title": "Updated Title",
+        "marked": true
+    }
+}
+```

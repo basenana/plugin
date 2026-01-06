@@ -55,8 +55,8 @@ func (p *ChecksumPlugin) Version() string {
 }
 
 func (p *ChecksumPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	filePath := api.GetParameter("file_path", request, "")
-	algorithm := api.GetParameter("algorithm", request, "md5")
+	filePath := api.GetStringParameter("file_path", request, "")
+	algorithm := api.GetStringParameter("algorithm", request, "md5")
 
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil

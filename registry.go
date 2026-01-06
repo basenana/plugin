@@ -37,6 +37,8 @@ type Manager interface {
 	Call(ctx context.Context, ps types.PluginCall, req *api.Request) (resp *api.Response, err error)
 }
 
+type Factory func(ps types.PluginCall) types.Plugin
+
 type manager struct {
 	r *registry
 }
@@ -51,7 +53,7 @@ func (m *manager) ListPlugins() []types.PluginSpec {
 }
 
 func (m *manager) Call(ctx context.Context, ps types.PluginCall, req *api.Request) (resp *api.Response, err error) {
-	var plugin Plugin
+	var plugin types.Plugin
 	plugin, err = m.r.BuildPlugin(ps)
 	if err != nil {
 		return nil, err
@@ -62,12 +64,6 @@ func (m *manager) Call(ctx context.Context, ps types.PluginCall, req *api.Reques
 		return nil, fmt.Errorf("not process plugin")
 	}
 	return runnablePlugin.Run(ctx, req)
-}
-
-type Plugin interface {
-	Name() string
-	Type() types.PluginType
-	Version() string
 }
 
 func Init() (Manager, error) {
@@ -85,7 +81,7 @@ type registry struct {
 	logger  *zap.SugaredLogger
 }
 
-func (r *registry) BuildPlugin(ps types.PluginCall) (Plugin, error) {
+func (r *registry) BuildPlugin(ps types.PluginCall) (types.Plugin, error) {
 	r.mux.RLock()
 	p, ok := r.plugins[ps.PluginName]
 	if !ok {
@@ -97,7 +93,7 @@ func (r *registry) BuildPlugin(ps types.PluginCall) (Plugin, error) {
 	return p.singleton, nil
 }
 
-func (r *registry) Register(pluginName string, spec types.PluginSpec, singleton Plugin) {
+func (r *registry) Register(pluginName string, spec types.PluginSpec, singleton types.Plugin) {
 	r.mux.Lock()
 	r.plugins[pluginName] = &pluginInfo{
 		singleton: singleton,
@@ -118,7 +114,7 @@ func (r *registry) List() []*pluginInfo {
 }
 
 type pluginInfo struct {
-	singleton Plugin
+	singleton types.Plugin
 	spec      types.PluginSpec
 	disable   bool
 	buildIn   bool

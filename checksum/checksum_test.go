@@ -66,7 +66,7 @@ func TestChecksumPlugin_Run_MD5(t *testing.T) {
 	expectedMD5 := hex.EncodeToString(md5Sum[:])
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testFile,
 			"algorithm": "md5",
 		},
@@ -101,7 +101,7 @@ func TestChecksumPlugin_Run_SHA256(t *testing.T) {
 	expectedSHA256 := hex.EncodeToString(sha256Sum[:])
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testFile,
 			"algorithm": "sha256",
 		},
@@ -136,7 +136,7 @@ func TestChecksumPlugin_Run_DefaultAlgorithm(t *testing.T) {
 	expectedMD5 := hex.EncodeToString(md5Sum[:])
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testFile,
 		},
 	}
@@ -158,7 +158,7 @@ func TestChecksumPlugin_Run_FileNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": "/nonexistent/file.txt",
 			"algorithm": "md5",
 		},
@@ -178,7 +178,7 @@ func TestChecksumPlugin_Run_MissingFilePath(t *testing.T) {
 	ctx := context.Background()
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"algorithm": "md5",
 		},
 	}
@@ -208,7 +208,7 @@ func TestChecksumPlugin_Run_UnsupportedAlgorithm(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter: map[string]string{
+		Parameter: map[string]any{
 			"file_path": testFile,
 			"algorithm": "sha512",
 		},

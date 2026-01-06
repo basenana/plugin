@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package save
+package filewrite
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	pluginName    = "save"
+	pluginName    = "filewrite"
 	pluginVersion = "1.0"
 )
 
@@ -39,24 +39,24 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type SavePlugin struct{}
+type FileWritePlugin struct{}
 
-func (p *SavePlugin) Name() string {
+func (p *FileWritePlugin) Name() string {
 	return pluginName
 }
 
-func (p *SavePlugin) Type() types.PluginType {
+func (p *FileWritePlugin) Type() types.PluginType {
 	return types.TypeProcess
 }
 
-func (p *SavePlugin) Version() string {
+func (p *FileWritePlugin) Version() string {
 	return pluginVersion
 }
 
-func (p *SavePlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	content := api.GetParameter("content", request, "")
-	destPath := api.GetParameter("dest_path", request, "")
-	modeStr := api.GetParameter("mode", request, "0644")
+func (p *FileWritePlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
+	content := api.GetStringParameter("content", request, "")
+	destPath := api.GetStringParameter("dest_path", request, "")
+	modeStr := api.GetStringParameter("mode", request, "0644")
 
 	if destPath == "" {
 		return api.NewFailedResponse("dest_path is required"), nil
@@ -84,8 +84,8 @@ func (p *SavePlugin) Run(ctx context.Context, request *api.Request) (*api.Respon
 	return api.NewResponse(), nil
 }
 
-func NewSavePlugin() *SavePlugin {
-	return &SavePlugin{}
+func NewFileWritePlugin() *FileWritePlugin {
+	return &FileWritePlugin{}
 }
 
 func ResolvePath(path string, workingPath string) (string, error) {

@@ -23,6 +23,12 @@ const (
 	TypeProcess PluginType = "process"
 )
 
+type Plugin interface {
+	Name() string
+	Type() PluginType
+	Version() string
+}
+
 // PluginSpec is Plugin Config File to load a Plugin
 type PluginSpec struct {
 	Name    string     `json:"name"`
@@ -31,6 +37,9 @@ type PluginSpec struct {
 }
 
 type PluginCall struct {
-	PluginName string `json:"plugin_name"`
-	Version    string `json:"version"`
+	JobID      string            `json:"job_id"`
+	Workflow   string            `json:"workflow"`
+	PluginName string            `json:"plugin_name"`
+	Version    string            `json:"version"`
+	Params     map[string]string `json:"params"`
 }

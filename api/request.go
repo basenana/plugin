@@ -16,26 +16,48 @@
 
 package api
 
+import "encoding/json"
+
 type Request struct {
 	JobID       string
 	Namespace   string
 	WorkingPath string
 
 	PluginName string
-	Parameter  map[string]string
+	Parameter  map[string]any
 
-	ContextStore PersistentStore
+	Store PersistentStore
+	FS    NanaFS
 }
 
-func GetParameter(key string, r *Request, defaultVal string) string {
+func GetStringParameter(key string, r *Request, defaultVal string) string {
 	if len(r.Parameter) > 0 {
-		str, ok := r.Parameter[key]
+		val, ok := r.Parameter[key]
 		if ok {
-			return str
+			if str, ok := val.(string); ok {
+				return str
+			}
+			if data, err := json.Marshal(val); err == nil {
+				return string(data)
+			}
 		}
-
 	}
 
+	return defaultVal
+}
+
+func GetBoolParameter(key string, r *Request, defaultVal bool) bool {
+	if len(r.Parameter) > 0 {
+		val, ok := r.Parameter[key]
+		if ok {
+			if b, ok := val.(bool); ok {
+				return b
+			}
+			if str, ok := val.(string); ok {
+				return str == "true" || str == "1"
+			}
+		}
+	}
 	return defaultVal
 }
 

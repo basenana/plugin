@@ -18,9 +18,17 @@ package api
 
 import (
 	"context"
+	"io"
+
+	"github.com/basenana/plugin/types"
 )
 
 type PersistentStore interface {
 	Load(ctx context.Context, source, group, key string, data any) error
 	Save(ctx context.Context, source, group, key string, data any) error
+}
+
+type NanaFS interface {
+	SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, write io.WriteCloser) error
+	UpdateEntry(ctx context.Context, entryURI int64, properties types.Properties) error
 }

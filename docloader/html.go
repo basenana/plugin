@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/basenana/plugin/types"
@@ -34,7 +35,7 @@ const (
 	webArchiveParser = "webarchive"
 )
 
-var metaContentRegex = regexp.MustCompile(`<meta\s+(?:[^>]*?\s+)?(name|property)=["']([^"']+)["'][^>]*?content=["']([^"']*)["']`)
+var metaContentRegex = regexp.MustCompile(`<meta\s+(?:[^>]*?\s+)?(name|property)=["']([^"']+)["'][^>]*?content=["']([^"']*)["'][^>]*?>`)
 
 type HTML struct {
 	docPath string
@@ -44,7 +45,7 @@ func NewHTML(docPath string, option map[string]string) Parser {
 	return HTML{docPath: docPath}
 }
 
-func (h HTML) Load(ctx context.Context, doc types.DocumentProperties) (*FDocument, error) {
+func (h HTML) Load(ctx context.Context) (types.Document, error) {
 	var p packer.Packer
 	switch {
 	case strings.HasSuffix(h.docPath, ".webarchive"):
@@ -52,113 +53,118 @@ func (h HTML) Load(ctx context.Context, doc types.DocumentProperties) (*FDocumen
 	case strings.HasSuffix(h.docPath, ".html") || strings.HasSuffix(h.docPath, ".htm"):
 		p = packer.NewHtmlPacker()
 	default:
-		return nil, fmt.Errorf("unsupported document type: %s", h.docPath)
+		return types.Document{}, fmt.Errorf("unsupported document type: %s", h.docPath)
 	}
 
-	doc = extractHTMLMetadata(h.docPath, doc)
+	props := extractHTMLMetadata(h.docPath)
 
 	content, err := p.ReadContent(ctx, packer.Option{
 		FilePath:    h.docPath,
 		ClutterFree: true,
 	})
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 
-	if doc.Abstract == "" {
-		doc.Abstract = utils.GenerateContentAbstract(content)
+	if props.Abstract == "" {
+		props.Abstract = utils.GenerateContentAbstract(content)
 	}
-	if doc.HeaderImage == "" {
-		doc.HeaderImage = utils.GenerateContentHeaderImage(content)
+	if props.HeaderImage == "" {
+		props.HeaderImage = utils.GenerateContentHeaderImage(content)
 	}
-	if doc.PublishAt == 0 {
+	if props.PublishAt == 0 {
 		if info, err := os.Stat(h.docPath); err == nil {
-			doc.PublishAt = info.ModTime().Unix()
+			props.PublishAt = info.ModTime().Unix()
 		}
 	}
-	return &FDocument{
-		Content:            content,
-		DocumentProperties: doc,
+
+	return types.Document{
+		Content:    content,
+		Properties: props,
 	}, nil
 }
 
-func extractHTMLMetadata(docPath string, doc types.DocumentProperties) types.DocumentProperties {
+func extractHTMLMetadata(docPath string) types.Properties {
+	props := types.Properties{}
 	f, err := os.Open(docPath)
 	if err != nil {
-		return doc
+		return props
 	}
 	defer f.Close()
 
 	data, err := ioutil.ReadAll(f)
 	if err != nil {
-		return doc
+		return props
 	}
 	content := string(data)
 
-	mapping := map[string]string{
-		"dc.title":       "Title",
-		"dc.creator":     "Author",
-		"dc.description": "Abstract",
-		"dc.subject":     "Keywords",
-		"dc.publisher":   "Source",
-		"dc.date":        "PublishAt",
-		"og:title":       "Title",
-		"og:description": "Abstract",
-		"og:site_name":   "Source",
-		"og:image":       "HeaderImage",
-		"author":         "Author",
-		"description":    "Abstract",
-		"keywords":       "Keywords",
-		"site_name":      "Source",
-	}
+	// Track which fields have been set (non-OG tags only set if empty)
+	set := map[string]bool{}
 
-	if titleMatch := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`).FindStringSubmatch(content); titleMatch != nil && doc.Title == "" {
-		doc.Title = strings.TrimSpace(titleMatch[1])
-	}
-
-	for _, match := range metaContentRegex.FindAllStringSubmatch(content, -1) {
+	// Process meta tags - OG tags can override, others only if empty
+	matches := metaContentRegex.FindAllStringSubmatch(content, -1)
+	for _, match := range matches {
 		if len(match) < 4 {
 			continue
 		}
-		attrType, metaName, metaContent := match[1], match[2], match[3]
-		key := metaName
-		if attrType == "property" {
-			key = "og:" + metaName
-		}
-		fieldName, ok := mapping[key]
-		if !ok {
-			continue
-		}
+		_, metaName, metaContent := match[1], match[2], match[3]
 
-		switch fieldName {
-		case "Title":
-			if doc.Title == "" {
-				doc.Title = metaContent
+		// OG tags override everything, others only set if empty
+		isOGTag := strings.HasPrefix(metaName, "og:")
+
+		switch metaName {
+		case "dc.title", "og:title":
+			if isOGTag || !set["title"] {
+				props.Title = metaContent
+				set["title"] = true
 			}
-		case "Author":
-			if doc.Author == "" {
-				doc.Author = metaContent
+		case "dc.creator", "author":
+			if isOGTag || !set["author"] {
+				props.Author = metaContent
+				set["author"] = true
 			}
-		case "Abstract":
-			if doc.Abstract == "" {
-				doc.Abstract = metaContent
+		case "dc.description", "og:description", "description":
+			if isOGTag || !set["abstract"] {
+				props.Abstract = metaContent
+				set["abstract"] = true
 			}
-		case "Keywords":
+		case "dc.subject", "keywords":
+			var keywords []string
 			for _, k := range regexp.MustCompile(`[,;]`).Split(metaContent, -1) {
 				k = strings.TrimSpace(k)
 				if k != "" {
-					doc.Keywords = append(doc.Keywords, k)
+					keywords = append(keywords, k)
 				}
 			}
-		case "Source":
-			if doc.Source == "" {
-				doc.Source = metaContent
+			if len(keywords) > 0 {
+				props.Keywords = keywords
 			}
-		case "HeaderImage":
-			if doc.HeaderImage == "" {
-				doc.HeaderImage = metaContent
+		case "dc.publisher", "og:site_name", "site_name":
+			if isOGTag || !set["source"] {
+				props.Source = metaContent
+				set["source"] = true
+			}
+		case "dc.date":
+			if t, err := strconv.ParseInt(metaContent, 10, 64); err == nil {
+				if isOGTag || !set["publish_at"] {
+					props.PublishAt = t
+					set["publish_at"] = true
+				}
+			}
+		case "og:image":
+			if isOGTag || !set["header_image"] {
+				props.HeaderImage = metaContent
+				set["header_image"] = true
 			}
 		}
 	}
-	return doc
+
+	// HTML title tag as fallback if no OG title
+	if props.Title == "" {
+		if titleMatch := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`).FindStringSubmatch(content); titleMatch != nil {
+			props.Title = strings.TrimSpace(titleMatch[1])
+		}
+	}
+
+	return props
 }

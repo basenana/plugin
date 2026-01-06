@@ -52,8 +52,8 @@ func (p *TextPlugin) Version() string {
 }
 
 func (p *TextPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
-	action := api.GetParameter("action", request, "")
-	content := api.GetParameter("content", request, "")
+	action := api.GetStringParameter("action", request, "")
+	content := api.GetStringParameter("content", request, "")
 
 	if action == "" {
 		return api.NewFailedResponse("action is required"), nil
@@ -63,7 +63,7 @@ func (p *TextPlugin) Run(ctx context.Context, request *api.Request) (*api.Respon
 		return api.NewFailedResponse("content is required"), nil
 	}
 
-	resultKey := api.GetParameter("result_key", request, "result")
+	resultKey := api.GetStringParameter("result_key", request, "result")
 	var result any
 	var err error
 
@@ -94,7 +94,7 @@ func (p *TextPlugin) Run(ctx context.Context, request *api.Request) (*api.Respon
 }
 
 func actionSearch(content string, request *api.Request) (any, error) {
-	pattern := api.GetParameter("pattern", request, "")
+	pattern := api.GetStringParameter("pattern", request, "")
 	if pattern == "" {
 		return nil, fmt.Errorf("pattern is required for search action")
 	}
@@ -103,17 +103,17 @@ func actionSearch(content string, request *api.Request) (any, error) {
 }
 
 func actionReplace(content string, request *api.Request) (any, error) {
-	pattern := api.GetParameter("pattern", request, "")
+	pattern := api.GetStringParameter("pattern", request, "")
 	if pattern == "" {
 		return nil, fmt.Errorf("pattern is required for replace action")
 	}
 
-	replacement := api.GetParameter("replacement", request, "")
+	replacement := api.GetStringParameter("replacement", request, "")
 	if replacement == "" {
 		return nil, fmt.Errorf("replacement is required for replace action")
 	}
 
-	countStr := api.GetParameter("count", request, "-1")
+	countStr := api.GetStringParameter("count", request, "-1")
 	count := -1
 	fmt.Sscanf(countStr, "%d", &count)
 
@@ -134,7 +134,7 @@ func actionReplace(content string, request *api.Request) (any, error) {
 }
 
 func actionRegex(content string, request *api.Request) (any, error) {
-	pattern := api.GetParameter("pattern", request, "")
+	pattern := api.GetStringParameter("pattern", request, "")
 	if pattern == "" {
 		return nil, fmt.Errorf("pattern is required for regex action")
 	}
@@ -149,9 +149,9 @@ func actionRegex(content string, request *api.Request) (any, error) {
 }
 
 func actionSplit(content string, request *api.Request) (any, error) {
-	delimiter := api.GetParameter("delimiter", request, "")
+	delimiter := api.GetStringParameter("delimiter", request, "")
 	if delimiter == "" {
-		delimiter = api.GetParameter("pattern", request, "")
+		delimiter = api.GetStringParameter("pattern", request, "")
 	}
 	if delimiter == "" {
 		return nil, fmt.Errorf("delimiter or pattern is required for split action")
@@ -170,12 +170,12 @@ func actionSplit(content string, request *api.Request) (any, error) {
 }
 
 func actionJoin(request *api.Request) (any, error) {
-	delimiter := api.GetParameter("delimiter", request, "")
+	delimiter := api.GetStringParameter("delimiter", request, "")
 	if delimiter == "" {
 		return nil, fmt.Errorf("delimiter is required for join action")
 	}
 
-	itemsParam := api.GetParameter("items", request, "")
+	itemsParam := api.GetStringParameter("items", request, "")
 	if itemsParam == "" {
 		return "", nil
 	}

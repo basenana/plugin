@@ -25,6 +25,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/basenana/plugin/types"
 )
 
 type CSV struct {
@@ -35,10 +37,10 @@ func NewCSV(docPath string, option map[string]string) CSV {
 	return CSV{docPath: docPath}
 }
 
-func (c CSV) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, error) {
+func (c CSV) Load(_ context.Context) (types.Document, error) {
 	f, err := os.Open(c.docPath)
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 	defer f.Close()
 
@@ -52,7 +54,7 @@ func (c CSV) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, 
 			break
 		}
 		if err != nil {
-			return nil, err
+			return types.Document{}, err
 		}
 
 		if len(header) == 0 {
@@ -72,20 +74,20 @@ func (c CSV) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, 
 		buf.WriteString(strings.Join(content, "\t"))
 	}
 
-	doc = extractFileNameMetadata(c.docPath, doc)
+	props := extractFileNameMetadata(c.docPath)
 
-	if doc.PublishAt == 0 {
+	if props.PublishAt == 0 {
 		if info, err := os.Stat(c.docPath); err == nil {
-			doc.PublishAt = info.ModTime().Unix()
+			props.PublishAt = info.ModTime().Unix()
 		}
 	}
 
-	if doc.Abstract == "" {
-		doc.Abstract = fmt.Sprintf("CSV file with %d columns", len(header))
+	if props.Abstract == "" {
+		props.Abstract = fmt.Sprintf("CSV file with %d columns", len(header))
 	}
 
-	return &FDocument{
-		Content:            buf.String(),
-		DocumentProperties: doc,
+	return types.Document{
+		Content:    buf.String(),
+		Properties: props,
 	}, nil
 }

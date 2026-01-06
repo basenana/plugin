@@ -67,15 +67,15 @@ func parsePDFDate(dateStr string) int64 {
 	return time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC).Unix()
 }
 
-func (p *PDF) Load(_ context.Context, doc types.DocumentProperties) (*FDocument, error) {
+func (p *PDF) Load(_ context.Context) (types.Document, error) {
 	fInfo, err := os.Stat(p.docPath)
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 
 	f, err := os.Open(p.docPath)
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 	defer f.Close()
 
@@ -86,13 +86,13 @@ func (p *PDF) Load(_ context.Context, doc types.DocumentProperties) (*FDocument,
 		reader, err = pdf.NewReader(f, fInfo.Size())
 	}
 	if err != nil {
-		return nil, err
+		return types.Document{}, err
 	}
 
-	doc = extractPDFMetadata(reader, doc)
+	props := extractPDFMetadata(reader)
 
-	if doc.PublishAt == 0 {
-		doc.PublishAt = fInfo.ModTime().Unix()
+	if props.PublishAt == 0 {
+		props.PublishAt = fInfo.ModTime().Unix()
 	}
 
 	fonts := make(map[string]*pdf.Font)
@@ -107,14 +107,14 @@ func (p *PDF) Load(_ context.Context, doc types.DocumentProperties) (*FDocument,
 		}
 		text, err := page.GetPlainText(fonts)
 		if err != nil {
-			return nil, err
+			return types.Document{}, err
 		}
 		buf.WriteString(text)
 	}
 
-	return &FDocument{
-		Content:            buf.String(),
-		DocumentProperties: doc,
+	return types.Document{
+		Content:    buf.String(),
+		Properties: props,
 	}, nil
 }
 
@@ -126,27 +126,18 @@ func (p *PDF) getAndCleanPassword() string {
 	return pass
 }
 
-func extractPDFMetadata(reader *pdf.Reader, doc types.DocumentProperties) types.DocumentProperties {
+func extractPDFMetadata(reader *pdf.Reader) types.Properties {
+	props := types.Properties{}
 	if reader == nil {
-		return doc
+		return props
 	}
 	catalog := reader.Trailer().Key("Root")
 	if catalog.IsNull() {
-		return doc
+		return props
 	}
 	info := catalog.Key("Info")
 	if info.IsNull() {
-		return doc
-	}
-
-	mapping := map[string]string{
-		"Title":        "Title",
-		"Author":       "Author",
-		"Subject":      "Abstract",
-		"Keywords":     "Keywords",
-		"Creator":      "Source",
-		"Producer":     "Source",
-		"CreationDate": "PublishAt",
+		return props
 	}
 
 	for _, key := range info.Keys() {
@@ -154,42 +145,38 @@ func extractPDFMetadata(reader *pdf.Reader, doc types.DocumentProperties) types.
 		if value.IsNull() {
 			continue
 		}
-		fieldName, ok := mapping[key]
-		if !ok || fieldName == "" {
-			continue
-		}
 		textValue := value.Text()
 		if textValue == "" {
 			continue
 		}
 
-		switch fieldName {
+		switch key {
 		case "Title":
-			doc.Title = textValue
+			props.Title = textValue
 		case "Author":
-			doc.Author = textValue
-		case "Abstract":
-			if doc.Abstract == "" {
-				doc.Abstract = textValue
-			}
+			props.Author = textValue
+		case "Subject":
+			props.Abstract = textValue
 		case "Keywords":
+			var keywords []string
 			for _, k := range strings.Split(textValue, ";") {
 				k = strings.TrimSpace(k)
 				if k != "" {
-					doc.Keywords = append(doc.Keywords, k)
+					keywords = append(keywords, k)
 				}
 			}
-		case "Source":
-			if doc.Source == "" {
-				doc.Source = textValue
+			props.Keywords = keywords
+		case "Creator", "Producer":
+			if props.Source == "" {
+				props.Source = textValue
 			} else {
-				doc.Source = doc.Source + "; " + textValue
+				props.Source = props.Source + "; " + textValue
 			}
-		case "PublishAt":
-			if doc.PublishAt == 0 {
-				doc.PublishAt = parsePDFDate(textValue)
+		case "CreationDate":
+			if props.PublishAt == 0 {
+				props.PublishAt = parsePDFDate(textValue)
 			}
 		}
 	}
-	return doc
+	return props
 }
