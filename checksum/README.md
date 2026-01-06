@@ -13,10 +13,12 @@ ProcessPlugin
 
 ## Parameters
 
-| Parameter | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `file_path` | Yes | string | Path to file to hash |
-| `algorithm` | No | string | Hash algorithm: `md5` or `sha256` (default: `md5`) |
+| Parameter | Required | Source | Description |
+|-----------|----------|--------|-------------|
+| `file_path` | Yes | Request | Path to file to hash |
+| `algorithm` | No | PluginCall | Hash algorithm: `md5` or `sha256` (default: `md5`) |
+
+**Note**: `algorithm` is read at plugin initialization time from PluginCall.Params. If not specified, defaults to `md5`.
 
 ## Output
 

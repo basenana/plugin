@@ -13,12 +13,14 @@ ProcessPlugin
 
 ## Parameters
 
-| Parameter | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `file_name` | Yes | string | Output filename (without extension) |
-| `url` | Yes | string | URL of the webpage to archive |
-| `file_type` | No | string | Output format: `html`, `webarchive` (default: `webarchive`) |
-| `clutter_free` | No | boolean | Remove clutter from HTML (default: `true`) |
+| Parameter | Required | Source | Description |
+|-----------|----------|--------|-------------|
+| `file_name` | Yes | Request | Output filename (without extension) |
+| `url` | Yes | Request | URL of the webpage to archive |
+| `file_type` | No | PluginCall | Output format: `html`, `webarchive` (default: `webarchive`) |
+| `clutter_free` | No | PluginCall | Remove clutter from HTML (default: `true`) |
+
+**Note**: `file_type` and `clutter_free` are read at plugin initialization time from PluginCall.Params. `file_name` and `url` are read at runtime from Request.
 
 ## Output
 

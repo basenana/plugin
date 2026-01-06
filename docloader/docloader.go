@@ -51,9 +51,9 @@ func NewDocLoader(ps types.PluginCall) types.Plugin {
 	}
 }
 
-func (d DocLoader) Name() string           { return PluginName }
-func (d DocLoader) Type() types.PluginType { return types.TypeProcess }
-func (d DocLoader) Version() string        { return PluginVersion }
+func (d *DocLoader) Name() string           { return PluginName }
+func (d *DocLoader) Type() types.PluginType { return types.TypeProcess }
+func (d *DocLoader) Version() string        { return PluginVersion }
 
 func (d *DocLoader) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	filePath := api.GetStringParameter("file_path", request, "")
@@ -78,7 +78,7 @@ func (d *DocLoader) Run(ctx context.Context, request *api.Request) (*api.Respons
 	return resp, nil
 }
 
-func (d DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (types.Document, error) {
+func (d *DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (types.Document, error) {
 	var (
 		entryPath   = path.Join(workdir, filePath)
 		fileExt     = filepath.Ext(entryPath)

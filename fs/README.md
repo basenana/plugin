@@ -13,7 +13,7 @@ Saves a local file to the NanaFS file system with metadata.
 | `file_path` | Yes | - | Path to the local file |
 | `name` | No | filename | Entry name in NanaFS |
 | `parent_uri` | No | - | Parent entry URI |
-| `properties` | No | - | Custom properties map |
+| `properties` | No | - | Properties map (flat structure) |
 | `document` | No | - | Document struct from docloader |
 
 **Properties fields**:
@@ -23,19 +23,31 @@ Saves a local file to the NanaFS file system with metadata.
 - `source` - Source/publisher
 - `abstract` - Abstract/summary
 - `notes` - Personal notes
-- `keywords` - Keywords array
+- `keywords` - Keywords (comma-separated)
 - `url` - Source URL
 - `header_image` - Header image URL
 - `unread` - Mark as unread (default: false)
 - `marked` - Mark as starred (default: false)
 - `publish_at` - Publish timestamp (Unix)
 
-**Example**:
+**Properties structure** (flat, not nested):
 ```json
 {
     "file_path": "/path/to/document.pdf",
     "name": "My Document",
     "parent_uri": "123",
+    "properties": {
+        "title": "Document Title",
+        "author": "Author Name",
+        "marked": true
+    }
+}
+```
+
+**Or use document from docloader**:
+```json
+{
+    "file_path": "/path/to/document.pdf",
     "document": {
         "content": "...",
         "properties": {
@@ -53,16 +65,28 @@ Updates an existing entry in NanaFS.
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `entry_uri` | Yes | - | Entry URI (numeric ID) |
-| `properties` | No | - | Custom properties map |
+| `properties` | No | - | Properties map (flat structure) |
 | `document` | No | - | Document struct from docloader |
 
-**Example**:
+**Properties structure** (flat, not nested):
 ```json
 {
     "entry_uri": "123",
     "properties": {
         "title": "Updated Title",
         "marked": true
+    }
+}
+```
+
+**Or use document from docloader**:
+```json
+{
+    "entry_uri": "123",
+    "document": {
+        "properties": {
+            "title": "Updated Title"
+        }
     }
 }
 ```

@@ -13,13 +13,15 @@ SourcePlugin
 
 ## Parameters
 
-| Parameter | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `feed` | Yes | string | RSS feed URL |
-| `file_type` | No | string | Output format: `url`, `html`, `rawhtml`, `webarchive` (default: `webarchive`) |
-| `timeout` | No | integer | Download timeout in seconds (default: 120) |
-| `clutter_free` | No | boolean | Remove clutter from HTML (default: `true`) |
-| `header_*` | No | string | Custom HTTP headers (prefix with `header_`) |
+| Parameter | Required | Source | Description |
+|-----------|----------|--------|-------------|
+| `feed` | Yes | Request | RSS feed URL |
+| `file_type` | No | PluginCall | Output format: `url`, `html`, `rawhtml`, `webarchive` (default: `webarchive`) |
+| `timeout` | No | PluginCall | Download timeout in seconds (default: 120) |
+| `clutter_free` | No | PluginCall | Remove clutter from HTML (default: `true`) |
+| `header_*` | No | PluginCall | Custom HTTP headers (prefix with `header_`) |
+
+**Note**: `file_type`, `timeout`, `clutter_free`, and `header_*` are read at plugin initialization time from PluginCall.Params. `feed` is read at runtime from Request.
 
 ## Output
 

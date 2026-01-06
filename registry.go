@@ -22,8 +22,18 @@ import (
 	"sync"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/archive"
+	"github.com/basenana/plugin/checksum"
+	"github.com/basenana/plugin/docloader"
+	"github.com/basenana/plugin/fileop"
+	"github.com/basenana/plugin/filewrite"
+	"github.com/basenana/plugin/fs"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/metadata"
+	"github.com/basenana/plugin/rss"
+	"github.com/basenana/plugin/text"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/web"
 	"go.uber.org/zap"
 )
 
@@ -31,13 +41,7 @@ var (
 	ErrNotFound = errors.New("PluginNotFound")
 )
 
-type Plugin interface {
-	Name() string
-	Type() types.PluginType
-	Version() string
-}
-
-type Factory func(ps types.PluginCall) Plugin
+type Factory func(ps types.PluginCall) types.Plugin
 
 type Manager interface {
 	ListPlugins() []types.PluginSpec
@@ -100,6 +104,9 @@ func (m *manager) BuildPlugin(ps types.PluginCall) (types.Plugin, error) {
 		return nil, ErrNotFound
 	}
 	m.mux.RUnlock()
+	if ps.Params == nil {
+		ps.Params = map[string]string{}
+	}
 	return p.factory(ps), nil
 }
 
@@ -113,9 +120,23 @@ func (m *manager) List() []*pluginInfo {
 	return result
 }
 
-func New() (Manager, error) {
-	return &manager{
+func New() Manager {
+	m := &manager{
 		plugins: map[string]*pluginInfo{},
 		logger:  logger.NewLogger("registry"),
-	}, nil
+	}
+
+	m.Register(archive.PluginSpec, archive.NewArchivePlugin)
+	m.Register(checksum.PluginSpec, checksum.NewChecksumPlugin)
+	m.Register(docloader.PluginSpec, docloader.NewDocLoader)
+	m.Register(fileop.PluginSpec, fileop.NewFileOpPlugin)
+	m.Register(filewrite.PluginSpec, filewrite.NewFileWritePlugin)
+	m.Register(fs.SavePluginSpec, fs.NewSaver)
+	m.Register(fs.UpdatePluginSpec, fs.NewUpdater)
+	m.Register(metadata.PluginSpec, metadata.NewMetadataPlugin)
+	m.Register(rss.RssSourcePluginSpec, rss.NewRssPlugin)
+	m.Register(text.PluginSpec, text.NewTextPlugin)
+	m.Register(web.WebpackPluginSpec, web.NewWebpackPlugin)
+
+	return m
 }

@@ -62,12 +62,46 @@ var RssSourcePluginSpec = types.PluginSpec{
 }
 
 type RssSourcePlugin struct {
-	logger *zap.SugaredLogger
+	logger      *zap.SugaredLogger
+	fileType    string
+	timeout     int
+	clutterFree bool
+	headers     map[string]string
 }
 
-func BuildRssSourcePlugin(ps types.PluginCall) types.Plugin {
+func NewRssPlugin(ps types.PluginCall) types.Plugin {
+	fileType := ps.Params[rssParameterFileType]
+	if fileType == "" {
+		fileType = archiveFileTypeWebArchive
+	}
+
+	timeoutStr := ps.Params[rssParameterTimeout]
+	timeout := 120
+	if timeoutStr != "" {
+		if t, err := strconv.Atoi(timeoutStr); err == nil {
+			timeout = t
+		}
+	}
+
+	clutterFree := true
+	if v, ok := ps.Params[rssParameterClutterFree]; ok {
+		v = strings.ToLower(v)
+		clutterFree = v == "true" || v == "1"
+	}
+
+	headers := make(map[string]string)
+	for k, v := range ps.Params {
+		if strings.HasPrefix(k, "header_") || strings.HasPrefix(k, "HEADER_") {
+			headers[k] = v
+		}
+	}
+
 	return &RssSourcePlugin{
-		logger: logger.NewPluginLogger(RssSourcePluginName, ps.JobID),
+		logger:      logger.NewPluginLogger(RssSourcePluginName, ps.JobID),
+		fileType:    fileType,
+		timeout:     timeout,
+		clutterFree: clutterFree,
+		headers:     headers,
 	}
 }
 
@@ -129,24 +163,10 @@ func (r *RssSourcePlugin) rssSources(request *api.Request) (src rssSource, err e
 		return
 	}
 
-	src.FileType = api.GetStringParameter(rssParameterFileType, request, archiveFileTypeWebArchive)
-
-	timeoutStr := api.GetStringParameter(rssParameterTimeout, request, "120")
-	src.Timeout, err = strconv.Atoi(timeoutStr)
-	if err != nil {
-		r.logger.Warnf("parse timeout error: %s", err)
-		src.Timeout = 120
-	}
-
-	src.ClutterFree = api.GetBoolParameter(rssParameterClutterFree, request, true)
-	src.Headers = make(map[string]string)
-
-	for k := range request.Parameter {
-		if strings.HasPrefix(k, "header_") || strings.HasPrefix(k, "HEADER_") {
-			vstr := api.GetStringParameter(k, request, "")
-			src.Headers[k] = vstr
-		}
-	}
+	src.FileType = r.fileType
+	src.Timeout = r.timeout
+	src.ClutterFree = r.clutterFree
+	src.Headers = r.headers
 	src.Store = request.Store
 	return
 }

@@ -43,12 +43,18 @@ var PluginSpec = types.PluginSpec{
 }
 
 type ChecksumPlugin struct {
-	logger *zap.SugaredLogger
+	algorithm string
+	logger    *zap.SugaredLogger
 }
 
 func NewChecksumPlugin(ps types.PluginCall) types.Plugin {
+	algorithm := ps.Params["algorithm"]
+	if algorithm == "" {
+		algorithm = "md5"
+	}
 	return &ChecksumPlugin{
-		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+		logger:    logger.NewPluginLogger(pluginName, ps.JobID),
+		algorithm: algorithm,
 	}
 }
 
@@ -66,15 +72,14 @@ func (p *ChecksumPlugin) Version() string {
 
 func (p *ChecksumPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	filePath := api.GetStringParameter("file_path", request, "")
-	algorithm := api.GetStringParameter("algorithm", request, "md5")
 
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil
 	}
 
-	p.logger.Infow("checksum started", "file_path", filePath, "algorithm", algorithm)
+	p.logger.Infow("checksum started", "file_path", filePath, "algorithm", p.algorithm)
 
-	hash, err := computeHash(filePath, algorithm)
+	hash, err := computeHash(filePath, p.algorithm)
 	if err != nil {
 		p.logger.Warnw("compute hash failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse(err.Error()), nil

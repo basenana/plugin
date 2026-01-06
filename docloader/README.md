@@ -33,18 +33,6 @@ ProcessPlugin
 
 Returns a map with `file_path` and `document` object containing:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `content` | string | Document text content |
-| `properties.title` | string | Document title |
-| `properties.author` | string | Author name |
-| `properties.abstract` | string | Document abstract/summary |
-| `properties.keywords` | string[] | Keywords (array of strings) |
-| `properties.source` | string | Source/publisher |
-| `properties.publish_at` | int64 | Publish timestamp (Unix) |
-| `properties.header_image` | string | Header image URL (HTML only) |
-| `properties.year` | string | Publication year (extracted from filename) |
-
 ```json
 {
   "file_path": "document.pdf",
@@ -53,15 +41,36 @@ Returns a map with `file_path` and `document` object containing:
     "properties": {
       "title": "<document-title>",
       "author": "<author>",
+      "year": "2024",
+      "source": "<source>",
       "abstract": "<summary>",
       "keywords": ["tag1", "tag2"],
-      "source": "<source>",
+      "header_image": "<url>",
       "publish_at": 1704067200,
-      "year": "2024"
+      "unread": false,
+      "marked": false
     }
   }
 }
 ```
+
+### Document Properties
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content` | string | Document text content |
+| `properties.title` | string | Document title |
+| `properties.author` | string | Author name |
+| `properties.year` | string | Publication year (from filename or metadata) |
+| `properties.source` | string | Source/publisher |
+| `properties.abstract` | string | Document abstract/summary |
+| `properties.notes` | string | Personal notes |
+| `properties.keywords` | []string | Keywords (array of strings) |
+| `properties.url` | string | Source URL |
+| `properties.header_image` | string | Header image URL (HTML only) |
+| `properties.unread` | bool | Marked as unread |
+| `properties.marked` | bool | Marked as starred |
+| `properties.publish_at` | int64 | Publish timestamp (Unix) |
 
 ## Architecture
 
@@ -149,6 +158,6 @@ docloader.go
 - If no title is found, filename (without extension) is used
 - Fields not found in document will be empty/default values
 - `header_image` only available for HTML with OG meta tags
-- `year` is extracted from filename patterns
+- `year` is extracted from filename patterns or document metadata
 - `keywords` is returned as an array, not comma-separated string
 - `publish_at` is Unix timestamp (int64), not string

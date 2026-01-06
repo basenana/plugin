@@ -48,12 +48,26 @@ var WebpackPluginSpec = types.PluginSpec{
 }
 
 type WebpackPlugin struct {
-	logger *zap.SugaredLogger
+	logger      *zap.SugaredLogger
+	fileType    string
+	clutterFree bool
 }
 
 func NewWebpackPlugin(ps types.PluginCall) types.Plugin {
+	fileType := ps.Params[webpackParameterFileType]
+	if fileType == "" {
+		fileType = "webarchive"
+	}
+
+	clutterFree := true
+	if v, ok := ps.Params[webpackParameterClutterFree]; ok {
+		clutterFree = v == "true" || v == "1"
+	}
+
 	return &WebpackPlugin{
-		logger: logger.NewPluginLogger(WebpackPluginName, ps.JobID),
+		logger:      logger.NewPluginLogger(WebpackPluginName, ps.JobID),
+		fileType:    fileType,
+		clutterFree: clutterFree,
 	}
 }
 
@@ -71,12 +85,10 @@ func (w *WebpackPlugin) Version() string {
 
 func (w *WebpackPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	var (
-		workdir     = request.WorkingPath
-		filename    = api.GetStringParameter(webpackParameterFileName, request, "")
-		urlInfo     = api.GetStringParameter(webpackParameterURL, request, "")
-		fileType    = api.GetStringParameter(webpackParameterFileType, request, "webarchive")
-		clutterFree = api.GetBoolParameter(webpackParameterClutterFree, request, true)
-		filePath    = path.Join(workdir, filename)
+		workdir  = request.WorkingPath
+		filename = api.GetStringParameter(webpackParameterFileName, request, "")
+		urlInfo  = api.GetStringParameter(webpackParameterURL, request, "")
+		filePath = path.Join(workdir, filename)
 	)
 
 	if workdir == "" {
@@ -91,13 +103,13 @@ func (w *WebpackPlugin) Run(ctx context.Context, request *api.Request) (*api.Res
 		return nil, fmt.Errorf("url is empty")
 	}
 
-	if fileType == "" || (fileType != "html" && fileType != "webarchive") {
-		return nil, fmt.Errorf("invalid file type [%s]", fileType)
+	if w.fileType == "" || (w.fileType != "html" && w.fileType != "webarchive") {
+		return nil, fmt.Errorf("invalid file type [%s]", w.fileType)
 	}
 
-	w.logger.Infow("webpack started", "url", urlInfo, "file_type", fileType)
+	w.logger.Infow("webpack started", "url", urlInfo, "file_type", w.fileType)
 
-	result, err := w.packFromURL(ctx, filePath, urlInfo, fileType, clutterFree)
+	result, err := w.packFromURL(ctx, filePath, urlInfo, w.fileType, w.clutterFree)
 	if err != nil {
 		w.logger.Warnw("packing failed", "url", urlInfo, "error", err)
 		return api.NewFailedResponse(fmt.Sprintf("packing url %s failed: %s", urlInfo, err)), err
