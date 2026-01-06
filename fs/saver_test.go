@@ -8,11 +8,23 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newSaver() *Saver {
+	s := &Saver{}
+	s.logger = logger.NewPluginLogger(savePluginName, "test-job")
+	return s
+}
+
 func TestSaver_Run_MissingFilePath(t *testing.T) {
-	plugin := &Saver{}
+	plugin := newSaver()
 	req := &api.Request{
 		Parameter: map[string]interface{}{},
 	}
@@ -28,7 +40,7 @@ func TestSaver_Run_MissingFilePath(t *testing.T) {
 }
 
 func TestSaver_Run_FileNotFound(t *testing.T) {
-	plugin := &Saver{}
+	plugin := newSaver()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"file_path": "/nonexistent/file.txt",
@@ -56,7 +68,7 @@ func TestSaver_Run_Success(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -91,7 +103,7 @@ func TestSaver_Run_WithName(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -129,7 +141,7 @@ func TestSaver_Run_WithParentURI(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -167,7 +179,7 @@ func TestSaver_Run_WithProperties(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -223,7 +235,7 @@ func TestSaver_Run_WithDocument(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -265,7 +277,7 @@ func TestSaver_Run_WithDocument(t *testing.T) {
 }
 
 func TestSaver_Run_WithNilParameter(t *testing.T) {
-	plugin := &Saver{}
+	plugin := newSaver()
 	req := &api.Request{
 		Parameter: nil,
 	}
@@ -281,7 +293,7 @@ func TestSaver_Run_WithNilParameter(t *testing.T) {
 }
 
 func TestSaver_Run_WithEmptyParameter(t *testing.T) {
-	plugin := &Saver{}
+	plugin := newSaver()
 	req := &api.Request{
 		Parameter: map[string]interface{}{},
 	}
@@ -306,7 +318,7 @@ func TestSaver_Run_NilFS(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"file_path": tmpFile.Name(),
@@ -335,7 +347,7 @@ func TestSaver_Run_SaveError(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	mockFS.SetSaveError(context.DeadlineExceeded)
 
@@ -366,7 +378,7 @@ func TestSaver_Run_WithAllParameters(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -374,17 +386,17 @@ func TestSaver_Run_WithAllParameters(t *testing.T) {
 			"name":       "all_params.txt",
 			"parent_uri": "999",
 			"properties": map[string]interface{}{
-				"title":       "Full Test",
-				"author":      "Author",
-				"year":        "2025",
-				"source":      "Source",
-				"abstract":    "Abstract",
-				"notes":       "Notes",
-				"url":         "https://example.com",
+				"title":        "Full Test",
+				"author":       "Author",
+				"year":         "2025",
+				"source":       "Source",
+				"abstract":     "Abstract",
+				"notes":        "Notes",
+				"url":          "https://example.com",
 				"header_image": "https://example.com/image.png",
-				"unread":      true,
-				"marked":      true,
-				"publish_at":  int64(1704067200),
+				"unread":       true,
+				"marked":       true,
+				"publish_at":   int64(1704067200),
 			},
 		},
 		FS: mockFS,
@@ -455,7 +467,7 @@ func TestSaver_Properties_Priority(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -502,7 +514,7 @@ func TestSaver_Properties_NilDocumentAndProperties(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -533,7 +545,7 @@ func TestSaver_Properties_InvalidDocumentType(t *testing.T) {
 	tmpFile.WriteString("test content")
 	tmpFile.Close()
 
-	plugin := &Saver{}
+	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{

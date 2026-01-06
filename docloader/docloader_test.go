@@ -23,10 +23,23 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newDocLoader() *DocLoader {
+	loader := NewDocLoader(types.PluginCall{JobID: "test-job"}).(*DocLoader)
+	loader.logger = logger.NewPluginLogger(PluginName, "test-job")
+	return loader
+}
+
 func TestDocLoader_NameTypeVersion(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	if loader.Name() != "docloader" {
 		t.Errorf("Name() = %q, want %q", loader.Name(), "docloader")
 	}
@@ -36,7 +49,7 @@ func TestDocLoader_NameTypeVersion(t *testing.T) {
 }
 
 func TestDocLoader_Run_MissingFilePath(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	req := &api.Request{
 		Parameter:   map[string]any{},
 		WorkingPath: "/tmp",
@@ -49,7 +62,7 @@ func TestDocLoader_Run_MissingFilePath(t *testing.T) {
 }
 
 func TestDocLoader_Run_FileNotFound(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	req := &api.Request{
 		Parameter:   map[string]any{"file_path": "/nonexistent/file.pdf"},
 		WorkingPath: "/tmp",
@@ -62,7 +75,7 @@ func TestDocLoader_Run_FileNotFound(t *testing.T) {
 }
 
 func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	tmpDir := t.TempDir()
 	unsupportedPath := filepath.Join(tmpDir, "test.xyz")
 
@@ -82,7 +95,7 @@ func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
 }
 
 func TestDocLoader_Run_TextFile(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	tmpDir := t.TempDir()
 	txtPath := filepath.Join(tmpDir, "test.txt")
 
@@ -120,7 +133,7 @@ This is a test paragraph.`
 }
 
 func TestDocLoader_Run_MarkdownFile(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	tmpDir := t.TempDir()
 	mdPath := filepath.Join(tmpDir, "document.md")
 
@@ -150,7 +163,7 @@ Some content here.`
 }
 
 func TestDocLoader_Run_HTMLFile(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	tmpDir := t.TempDir()
 	htmlPath := filepath.Join(tmpDir, "page.html")
 
@@ -188,7 +201,7 @@ func TestDocLoader_Run_HTMLFile(t *testing.T) {
 }
 
 func TestDocLoader_Run_DefaultTitle(t *testing.T) {
-	loader := NewDocLoader()
+	loader := newDocLoader()
 	tmpDir := t.TempDir()
 	txtPath := filepath.Join(tmpDir, "my_custom_file.txt")
 

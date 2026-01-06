@@ -23,7 +23,19 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newMetadataPlugin() *MetadataPlugin {
+	p := &MetadataPlugin{}
+	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	return p
+}
 
 func TestMetadataPlugin_Name(t *testing.T) {
 	p := &MetadataPlugin{}
@@ -47,7 +59,7 @@ func TestMetadataPlugin_Version(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_File(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -92,7 +104,7 @@ func TestMetadataPlugin_Run_File(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_Directory(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -127,7 +139,7 @@ func TestMetadataPlugin_Run_Directory(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -149,7 +161,7 @@ func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_MissingFilePath(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{

@@ -5,10 +5,22 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"go.uber.org/zap"
 )
 
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newUpdater() *Updater {
+	u := &Updater{}
+	u.logger = logger.NewPluginLogger("updater", "test-job")
+	return u
+}
+
 func TestUpdater_Run_MissingEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{},
 	}
@@ -24,7 +36,7 @@ func TestUpdater_Run_MissingEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_EmptyEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "",
@@ -42,7 +54,7 @@ func TestUpdater_Run_EmptyEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_InvalidEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "invalid",
@@ -60,7 +72,7 @@ func TestUpdater_Run_InvalidEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_ZeroEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "0",
@@ -78,7 +90,7 @@ func TestUpdater_Run_ZeroEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_NegativeEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "-1",
@@ -96,7 +108,7 @@ func TestUpdater_Run_NegativeEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_Success(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -119,7 +131,7 @@ func TestUpdater_Run_Success(t *testing.T) {
 }
 
 func TestUpdater_Run_WithProperties(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -146,7 +158,7 @@ func TestUpdater_Run_WithProperties(t *testing.T) {
 }
 
 func TestUpdater_Run_WithDocument(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -154,7 +166,7 @@ func TestUpdater_Run_WithDocument(t *testing.T) {
 			"document": map[string]interface{}{
 				"content": "document content",
 				"properties": map[string]interface{}{
-					"title":   "Doc Title",
+					"title":    "Doc Title",
 					"abstract": "Doc Abstract",
 					"keywords": []interface{}{"kw1", "kw2"},
 				},
@@ -174,7 +186,7 @@ func TestUpdater_Run_WithDocument(t *testing.T) {
 }
 
 func TestUpdater_Run_NilParameter(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: nil,
 	}
@@ -190,7 +202,7 @@ func TestUpdater_Run_NilParameter(t *testing.T) {
 }
 
 func TestUpdater_Run_NilFS(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "123",
@@ -209,7 +221,7 @@ func TestUpdater_Run_NilFS(t *testing.T) {
 }
 
 func TestUpdater_Run_UpdateError(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	mockFS.SetUpdateError(context.DeadlineExceeded)
 
@@ -231,23 +243,23 @@ func TestUpdater_Run_UpdateError(t *testing.T) {
 }
 
 func TestUpdater_Run_WithAllParameters(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "999",
 			"properties": map[string]interface{}{
-				"title":       "Full Update",
-				"author":      "Author",
-				"year":        "2025",
-				"source":      "Source",
-				"abstract":    "Abstract",
-				"notes":       "Notes",
-				"url":         "https://example.com",
+				"title":        "Full Update",
+				"author":       "Author",
+				"year":         "2025",
+				"source":       "Source",
+				"abstract":     "Abstract",
+				"notes":        "Notes",
+				"url":          "https://example.com",
 				"header_image": "https://example.com/image.png",
-				"unread":      true,
-				"marked":      true,
-				"publish_at":  int64(1704067200),
+				"unread":       true,
+				"marked":       true,
+				"publish_at":   int64(1704067200),
 			},
 		},
 		FS: mockFS,
@@ -264,7 +276,7 @@ func TestUpdater_Run_WithAllParameters(t *testing.T) {
 }
 
 func TestUpdater_Run_LargeEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -285,7 +297,7 @@ func TestUpdater_Run_LargeEntryURI(t *testing.T) {
 
 func TestUpdater_Run_PropertiesAndDocumentBothProvided(t *testing.T) {
 	// properties should take priority over document
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -314,7 +326,7 @@ func TestUpdater_Run_PropertiesAndDocumentBothProvided(t *testing.T) {
 }
 
 func TestUpdater_Run_NilPropertiesAndDocument(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -336,7 +348,7 @@ func TestUpdater_Run_NilPropertiesAndDocument(t *testing.T) {
 }
 
 func TestUpdater_Run_InvalidDocumentType(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
@@ -360,7 +372,7 @@ func TestUpdater_Run_InvalidDocumentType(t *testing.T) {
 }
 
 func TestUpdater_Run_WhitespaceEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": "   ",
@@ -378,7 +390,7 @@ func TestUpdater_Run_WhitespaceEntryURI(t *testing.T) {
 }
 
 func TestUpdater_Run_FloatEntryURI(t *testing.T) {
-	plugin := &Updater{}
+	plugin := newUpdater()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"entry_uri": 123.456,
@@ -398,7 +410,7 @@ func TestUpdater_Run_FloatEntryURI(t *testing.T) {
 
 func TestUpdater_Run_UpdateNonexistentEntry(t *testing.T) {
 	// Should not fail when updating a non-existent entry
-	plugin := &Updater{}
+	plugin := newUpdater()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{

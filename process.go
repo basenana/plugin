@@ -28,7 +28,7 @@ import (
 )
 
 type ProcessPlugin interface {
-	Plugin
+	types.Plugin
 	Run(ctx context.Context, request *api.Request) (*api.Response, error)
 }
 
@@ -70,7 +70,6 @@ func (d *DelayProcessPlugin) Version() string {
 func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	var (
 		until            time.Time
-		nowTime          = time.Now()
 		delayDurationStr = api.GetStringParameter("delay", request, "")
 		untilStr         = api.GetStringParameter("until", request, "")
 	)
@@ -87,7 +86,7 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 
 	case untilStr != "":
 		var err error
-		until, err = time.Parse(untilStr, time.RFC3339)
+		until, err = time.Parse(time.RFC3339, untilStr)
 		if err != nil {
 			d.logger.Warnw("parse delay until failed", "until", untilStr, "error", err)
 			return nil, fmt.Errorf("parse delay until [%s] failed: %s", untilStr, err)
@@ -99,8 +98,9 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 
 	d.logger.Infow("delay started", "until", until)
 
-	if nowTime.Before(until) {
-		timer := time.NewTimer(until.Sub(nowTime))
+	now := time.Now()
+	if now.Before(until) {
+		timer := time.NewTimer(until.Sub(now))
 		defer timer.Stop()
 		select {
 		case <-timer.C:

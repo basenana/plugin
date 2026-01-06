@@ -23,31 +23,43 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"go.uber.org/zap"
 )
 
-func TestFileWritePlugin_Name(t *testing.T) {
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newFileWritePlugin() *FileWritePlugin {
 	p := &FileWritePlugin{}
+	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	return p
+}
+
+func TestFileWritePlugin_Name(t *testing.T) {
+	p := newFileWritePlugin()
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestFileWritePlugin_Type(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestFileWritePlugin_Version(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -79,7 +91,7 @@ func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -110,7 +122,7 @@ func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -141,7 +153,7 @@ func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -163,7 +175,7 @@ func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -187,7 +199,7 @@ func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
-	p := &FileWritePlugin{}
+	p := newFileWritePlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()

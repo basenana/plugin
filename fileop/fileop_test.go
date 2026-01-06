@@ -23,7 +23,19 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"go.uber.org/zap"
 )
+
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newFileOpPlugin() *FileOpPlugin {
+	p := &FileOpPlugin{}
+	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	return p
+}
 
 func TestFileOpPlugin_Name(t *testing.T) {
 	p := &FileOpPlugin{}
@@ -47,7 +59,7 @@ func TestFileOpPlugin_Version(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Copy(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -85,7 +97,7 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Move(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -131,7 +143,7 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Remove(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -163,7 +175,7 @@ func TestFileOpPlugin_Run_Remove(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Rename(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	tmpDir := t.TempDir()
@@ -201,7 +213,7 @@ func TestFileOpPlugin_Run_Rename(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -223,7 +235,7 @@ func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_UnknownAction(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{

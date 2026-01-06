@@ -21,31 +21,43 @@ import (
 	"testing"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
+	"go.uber.org/zap"
 )
 
-func TestTextPlugin_Name(t *testing.T) {
+func init() {
+	logger.SetLogger(zap.NewNop().Sugar())
+}
+
+func newTextPlugin() *TextPlugin {
 	p := &TextPlugin{}
+	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	return p
+}
+
+func TestTextPlugin_Name(t *testing.T) {
+	p := newTextPlugin()
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestTextPlugin_Type(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestTextPlugin_Version(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestTextPlugin_Run_Search_Found(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -69,7 +81,7 @@ func TestTextPlugin_Run_Search_Found(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Search_NotFound(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -93,7 +105,7 @@ func TestTextPlugin_Run_Search_NotFound(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Replace(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -118,7 +130,7 @@ func TestTextPlugin_Run_Replace(t *testing.T) {
 }
 
 func TestTextPlugin_Run_ReplaceAll(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -143,7 +155,7 @@ func TestTextPlugin_Run_ReplaceAll(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Regex(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -167,7 +179,7 @@ func TestTextPlugin_Run_Regex(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Split(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -199,7 +211,7 @@ func TestTextPlugin_Run_Split(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Split_TrimSpaces(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -231,7 +243,7 @@ func TestTextPlugin_Run_Split_TrimSpaces(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Join(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -255,7 +267,7 @@ func TestTextPlugin_Run_Join(t *testing.T) {
 }
 
 func TestTextPlugin_Run_MissingAction(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -277,7 +289,7 @@ func TestTextPlugin_Run_MissingAction(t *testing.T) {
 }
 
 func TestTextPlugin_Run_UnknownAction(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -300,7 +312,7 @@ func TestTextPlugin_Run_UnknownAction(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Replace_MissingPattern(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -324,7 +336,7 @@ func TestTextPlugin_Run_Replace_MissingPattern(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Split_MissingDelimiter(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -347,7 +359,7 @@ func TestTextPlugin_Run_Split_MissingDelimiter(t *testing.T) {
 }
 
 func TestTextPlugin_Run_Join_MissingDelimiter(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -370,7 +382,7 @@ func TestTextPlugin_Run_Join_MissingDelimiter(t *testing.T) {
 }
 
 func TestTextPlugin_Run_CustomResultKey(t *testing.T) {
-	p := &TextPlugin{}
+	p := newTextPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
