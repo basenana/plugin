@@ -23,7 +23,9 @@ import (
 	"path/filepath"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -37,7 +39,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type FileOpPlugin struct{}
+type FileOpPlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewFileOpPlugin(ps types.PluginCall) types.Plugin {
+	return &FileOpPlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *FileOpPlugin) Name() string {
 	return pluginName
@@ -64,6 +74,8 @@ func (p *FileOpPlugin) Run(ctx context.Context, request *api.Request) (*api.Resp
 		return api.NewFailedResponse("src is required"), nil
 	}
 
+	p.logger.Infow("fileop started", "action", action, "src", src, "dest", dest)
+
 	var err error
 	switch action {
 	case "cp":
@@ -82,9 +94,11 @@ func (p *FileOpPlugin) Run(ctx context.Context, request *api.Request) (*api.Resp
 	}
 
 	if err != nil {
+		p.logger.Warnw("fileop failed", "action", action, "src", src, "dest", dest, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
+	p.logger.Infow("fileop completed", "action", action, "src", src, "dest", dest)
 	return api.NewResponse(), nil
 }
 
@@ -142,10 +156,6 @@ func CopyBuffer(dst, src *os.File, buf []byte) (int64, error) {
 		}
 	}
 	return written, nil
-}
-
-func NewFileOpPlugin() *FileOpPlugin {
-	return &FileOpPlugin{}
 }
 
 func ResolvePath(path string, workingPath string) (string, error) {

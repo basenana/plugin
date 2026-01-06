@@ -47,7 +47,15 @@ var WebpackPluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type WebpackPlugin struct{}
+type WebpackPlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewWebpackPlugin(ps types.PluginCall) types.Plugin {
+	return &WebpackPlugin{
+		logger: logger.NewPluginLogger(WebpackPluginName, ps.JobID),
+	}
+}
 
 func (w *WebpackPlugin) Name() string {
 	return WebpackPluginName
@@ -69,7 +77,6 @@ func (w *WebpackPlugin) Run(ctx context.Context, request *api.Request) (*api.Res
 		fileType    = api.GetStringParameter(webpackParameterFileType, request, "webarchive")
 		clutterFree = api.GetBoolParameter(webpackParameterClutterFree, request, true)
 		filePath    = path.Join(workdir, filename)
-		log         = logger.NewLogger(WebpackPluginName)
 	)
 
 	if workdir == "" {
@@ -88,16 +95,21 @@ func (w *WebpackPlugin) Run(ctx context.Context, request *api.Request) (*api.Res
 		return nil, fmt.Errorf("invalid file type [%s]", fileType)
 	}
 
-	result, err := w.packFromURL(ctx, filePath, urlInfo, fileType, clutterFree, log)
+	w.logger.Infow("webpack started", "url", urlInfo, "file_type", fileType)
+
+	result, err := w.packFromURL(ctx, filePath, urlInfo, fileType, clutterFree)
 	if err != nil {
+		w.logger.Warnw("packing failed", "url", urlInfo, "error", err)
 		return api.NewFailedResponse(fmt.Sprintf("packing url %s failed: %s", urlInfo, err)), err
 	}
+
+	w.logger.Infow("webpack completed", "file_path", result["file_path"])
 
 	resp := api.NewResponseWithResult(result)
 	return resp, nil
 }
 
-func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtFileType string, clutterFree bool, logger *zap.SugaredLogger) (map[string]any, error) {
+func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtFileType string, clutterFree bool) (map[string]any, error) {
 
 	var (
 		filename = path.Base(filePath)
@@ -110,7 +122,7 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 	}
 
 	filename += "." + tgtFileType
-	logger.Infof("packing url %s to %s", urlInfo, filename)
+	w.logger.Infof("packing url %s to %s", urlInfo, filename)
 
 	switch tgtFileType {
 	case "webarchive":
@@ -124,7 +136,7 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 			EnablePrivateNet: enablePrivateNet,
 		})
 		if err != nil {
-			logger.Warnw("pack to webarchive failed", "link", urlInfo, "err", err)
+			w.logger.Warnw("pack to webarchive failed", "link", urlInfo, "err", err)
 			return nil, fmt.Errorf("pack to webarchive failed: %w", err)
 		}
 	case "html":
@@ -138,7 +150,7 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 			EnablePrivateNet: enablePrivateNet,
 		})
 		if err != nil {
-			logger.Warnw("pack to raw html file failed", "link", urlInfo, "err", err)
+			w.logger.Warnw("pack to raw html file failed", "link", urlInfo, "err", err)
 			return nil, fmt.Errorf("pack to html failed: %w", err)
 		}
 	}
@@ -153,10 +165,6 @@ func (w *WebpackPlugin) packFromURL(ctx context.Context, filePath, urlInfo, tgtF
 		"title":     title,
 		"url":       urlInfo,
 	}, nil
-}
-
-func NewWebpackPlugin() *WebpackPlugin {
-	return &WebpackPlugin{}
 }
 
 var (

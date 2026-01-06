@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -37,7 +39,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type MetadataPlugin struct{}
+type MetadataPlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewMetadataPlugin(ps types.PluginCall) types.Plugin {
+	return &MetadataPlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *MetadataPlugin) Name() string {
 	return pluginName
@@ -57,11 +67,15 @@ func (p *MetadataPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		return api.NewFailedResponse("file_path is required"), nil
 	}
 
+	p.logger.Infow("metadata started", "file_path", filePath)
+
 	info, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			p.logger.Warnw("file not found", "file_path", filePath)
 			return api.NewFailedResponse(fmt.Sprintf("file not found: %s", filePath)), nil
 		}
+		p.logger.Warnw("stat failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
@@ -72,9 +86,6 @@ func (p *MetadataPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		"is_dir":   info.IsDir(),
 	}
 
+	p.logger.Infow("metadata completed", "file_path", filePath, "size", info.Size())
 	return api.NewResponseWithResult(results), nil
-}
-
-func NewMetadataPlugin() *MetadataPlugin {
-	return &MetadataPlugin{}
 }

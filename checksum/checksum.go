@@ -26,7 +26,9 @@ import (
 	"os"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -40,7 +42,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type ChecksumPlugin struct{}
+type ChecksumPlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewChecksumPlugin(ps types.PluginCall) types.Plugin {
+	return &ChecksumPlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *ChecksumPlugin) Name() string {
 	return pluginName
@@ -62,10 +72,15 @@ func (p *ChecksumPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		return api.NewFailedResponse("file_path is required"), nil
 	}
 
+	p.logger.Infow("checksum started", "file_path", filePath, "algorithm", algorithm)
+
 	hash, err := computeHash(filePath, algorithm)
 	if err != nil {
+		p.logger.Warnw("compute hash failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
+
+	p.logger.Infow("checksum completed", "file_path", filePath, "hash", hash)
 
 	results := map[string]any{
 		"hash": hash,
@@ -101,8 +116,4 @@ func computeHash(filePath, algorithm string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-func NewChecksumPlugin() *ChecksumPlugin {
-	return &ChecksumPlugin{}
 }

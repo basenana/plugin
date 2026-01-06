@@ -24,7 +24,9 @@ import (
 	"time"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 type SourcePlugin interface {
@@ -36,9 +38,17 @@ const (
 	the3BodyPluginVersion = "1.0"
 )
 
-type ThreeBodyPlugin struct{}
+type ThreeBodyPlugin struct {
+	logger *zap.SugaredLogger
+}
 
 var _ SourcePlugin = &ThreeBodyPlugin{}
+
+func NewThreeBodyPlugin(ps types.PluginCall) *ThreeBodyPlugin {
+	return &ThreeBodyPlugin{
+		logger: logger.NewPluginLogger(the3BodyPluginName, ps.JobID),
+	}
+}
 
 func (d *ThreeBodyPlugin) Name() string {
 	return the3BodyPluginName
@@ -61,11 +71,15 @@ func (d *ThreeBodyPlugin) Run(ctx context.Context, request *api.Request) (*api.R
 		return nil, fmt.Errorf("workdir is empty")
 	}
 
+	d.logger.Infow("three_body plugin started", "workdir", request.WorkingPath)
+
 	result, err := d.fileGenerate(request.WorkingPath)
 	if err != nil {
+		d.logger.Warnw("file generate failed", "error", err)
 		resp := api.NewFailedResponse(fmt.Sprintf("file generate failed: %s", err))
 		return resp, nil
 	}
+	d.logger.Infow("file generated", "file_path", result["file_path"], "size", result["size"])
 	resp := api.NewResponseWithResult(result)
 	return resp, nil
 }

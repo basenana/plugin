@@ -13,3 +13,7 @@ func SetLogger(log *zap.SugaredLogger) {
 func NewLogger(name string) *zap.SugaredLogger {
 	return root.Named(name)
 }
+
+func NewPluginLogger(name, jobID string) *zap.SugaredLogger {
+	return NewLogger(name).With(zap.String("job", jobID))
+}

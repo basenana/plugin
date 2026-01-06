@@ -19,7 +19,6 @@ package plugin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/basenana/plugin/api"
@@ -32,19 +31,35 @@ var (
 	ErrNotFound = errors.New("PluginNotFound")
 )
 
+type Plugin interface {
+	Name() string
+	Type() types.PluginType
+	Version() string
+}
+
+type Factory func(ps types.PluginCall) Plugin
+
 type Manager interface {
 	ListPlugins() []types.PluginSpec
+	Register(spec types.PluginSpec, factory Factory)
 	Call(ctx context.Context, ps types.PluginCall, req *api.Request) (resp *api.Response, err error)
 }
 
-type Factory func(ps types.PluginCall) types.Plugin
-
 type manager struct {
-	r *registry
+	plugins map[string]*pluginInfo
+	mux     sync.RWMutex
+	logger  *zap.SugaredLogger
+}
+
+type pluginInfo struct {
+	factory Factory
+	spec    types.PluginSpec
+	disable bool
+	buildIn bool
 }
 
 func (m *manager) ListPlugins() []types.PluginSpec {
-	infos := m.r.List()
+	infos := m.List()
 	var result = make([]types.PluginSpec, 0, len(infos))
 	for _, i := range infos {
 		result = append(result, i.spec)
@@ -52,70 +67,55 @@ func (m *manager) ListPlugins() []types.PluginSpec {
 	return result
 }
 
+func (m *manager) Register(spec types.PluginSpec, factory Factory) {
+	m.mux.Lock()
+	m.plugins[spec.Name] = &pluginInfo{
+		factory: factory,
+		spec:    spec,
+		buildIn: true,
+	}
+	m.mux.Unlock()
+}
+
 func (m *manager) Call(ctx context.Context, ps types.PluginCall, req *api.Request) (resp *api.Response, err error) {
 	var plugin types.Plugin
-	plugin, err = m.r.BuildPlugin(ps)
+	plugin, err = m.BuildPlugin(ps)
 	if err != nil {
 		return nil, err
 	}
 
 	runnablePlugin, ok := plugin.(ProcessPlugin)
 	if !ok {
-		return nil, fmt.Errorf("not process plugin")
+		return nil, errors.New("not process plugin")
 	}
 	return runnablePlugin.Run(ctx, req)
 }
 
-func Init() (Manager, error) {
-	r := &registry{
-		plugins: map[string]*pluginInfo{},
-		logger:  logger.NewLogger("registry"),
-	}
-
-	return &manager{r: r}, nil
-}
-
-type registry struct {
-	plugins map[string]*pluginInfo
-	mux     sync.RWMutex
-	logger  *zap.SugaredLogger
-}
-
-func (r *registry) BuildPlugin(ps types.PluginCall) (types.Plugin, error) {
-	r.mux.RLock()
-	p, ok := r.plugins[ps.PluginName]
+func (m *manager) BuildPlugin(ps types.PluginCall) (types.Plugin, error) {
+	m.mux.RLock()
+	p, ok := m.plugins[ps.PluginName]
 	if !ok {
-		r.mux.RUnlock()
-		r.logger.Warnw("build plugin failed", "plugin", ps.PluginName)
+		m.mux.RUnlock()
+		m.logger.Warnw("build plugin failed", "plugin", ps.PluginName)
 		return nil, ErrNotFound
 	}
-	r.mux.RUnlock()
-	return p.singleton, nil
+	m.mux.RUnlock()
+	return p.factory(ps), nil
 }
 
-func (r *registry) Register(pluginName string, spec types.PluginSpec, singleton types.Plugin) {
-	r.mux.Lock()
-	r.plugins[pluginName] = &pluginInfo{
-		singleton: singleton,
-		spec:      spec,
-		buildIn:   true,
-	}
-	r.mux.Unlock()
-}
-
-func (r *registry) List() []*pluginInfo {
-	var result = make([]*pluginInfo, 0, len(r.plugins))
-	r.mux.Lock()
-	for _, p := range r.plugins {
+func (m *manager) List() []*pluginInfo {
+	var result = make([]*pluginInfo, 0, len(m.plugins))
+	m.mux.Lock()
+	for _, p := range m.plugins {
 		result = append(result, p)
 	}
-	r.mux.Unlock()
+	m.mux.Unlock()
 	return result
 }
 
-type pluginInfo struct {
-	singleton types.Plugin
-	spec      types.PluginSpec
-	disable   bool
-	buildIn   bool
+func New() (Manager, error) {
+	return &manager{
+		plugins: map[string]*pluginInfo{},
+		logger:  logger.NewLogger("registry"),
+	}, nil
 }

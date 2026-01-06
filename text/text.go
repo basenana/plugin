@@ -23,7 +23,9 @@ import (
 	"strings"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -37,7 +39,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type TextPlugin struct{}
+type TextPlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewTextPlugin(ps types.PluginCall) types.Plugin {
+	return &TextPlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *TextPlugin) Name() string {
 	return pluginName
@@ -63,6 +73,8 @@ func (p *TextPlugin) Run(ctx context.Context, request *api.Request) (*api.Respon
 		return api.NewFailedResponse("content is required"), nil
 	}
 
+	p.logger.Infow("text started", "action", action)
+
 	resultKey := api.GetStringParameter("result_key", request, "result")
 	var result any
 	var err error
@@ -83,8 +95,11 @@ func (p *TextPlugin) Run(ctx context.Context, request *api.Request) (*api.Respon
 	}
 
 	if err != nil {
+		p.logger.Warnw("text action failed", "action", action, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
+
+	p.logger.Infow("text completed", "action", action)
 
 	results := map[string]any{
 		resultKey: result,
@@ -187,8 +202,4 @@ func actionJoin(request *api.Request) (any, error) {
 		items[i] = strings.TrimSpace(item)
 	}
 	return strings.Join(items, delimiter), nil
-}
-
-func NewTextPlugin() *TextPlugin {
-	return &TextPlugin{}
 }

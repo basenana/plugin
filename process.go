@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 type ProcessPlugin interface {
@@ -41,9 +43,17 @@ var DelayProcessPluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type DelayProcessPlugin struct{}
+type DelayProcessPlugin struct {
+	logger *zap.SugaredLogger
+}
 
 var _ ProcessPlugin = &DelayProcessPlugin{}
+
+func NewDelayProcessPlugin(ps types.PluginCall) *DelayProcessPlugin {
+	return &DelayProcessPlugin{
+		logger: logger.NewPluginLogger(delayPluginName, ps.JobID),
+	}
+}
 
 func (d *DelayProcessPlugin) Name() string {
 	return delayPluginName
@@ -70,6 +80,7 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 	case delayDurationStr != "":
 		duration, err := time.ParseDuration(delayDurationStr)
 		if err != nil {
+			d.logger.Warnw("parse delay duration failed", "duration", delayDurationStr, "error", err)
 			return nil, fmt.Errorf("parse delay duration [%s] failed: %s", delayDurationStr, err)
 		}
 		until = time.Now().Add(duration)
@@ -78,6 +89,7 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 		var err error
 		until, err = time.Parse(untilStr, time.RFC3339)
 		if err != nil {
+			d.logger.Warnw("parse delay until failed", "until", untilStr, "error", err)
 			return nil, fmt.Errorf("parse delay until [%s] failed: %s", untilStr, err)
 		}
 
@@ -85,11 +97,14 @@ func (d *DelayProcessPlugin) Run(ctx context.Context, request *api.Request) (*ap
 		return api.NewFailedResponse(fmt.Sprintf("unknown action")), nil
 	}
 
+	d.logger.Infow("delay started", "until", until)
+
 	if nowTime.Before(until) {
 		timer := time.NewTimer(until.Sub(nowTime))
 		defer timer.Stop()
 		select {
 		case <-timer.C:
+			d.logger.Infow("delay completed")
 			return api.NewResponse(), nil
 		case <-ctx.Done():
 			return api.NewFailedResponse(ctx.Err().Error()), nil

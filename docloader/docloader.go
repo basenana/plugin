@@ -24,8 +24,10 @@ import (
 	"strings"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
 	"github.com/basenana/plugin/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -39,22 +41,35 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type DocLoader struct{}
+type DocLoader struct {
+	logger *zap.SugaredLogger
+}
+
+func NewDocLoader(ps types.PluginCall) types.Plugin {
+	return &DocLoader{
+		logger: logger.NewPluginLogger(PluginName, ps.JobID),
+	}
+}
 
 func (d DocLoader) Name() string           { return PluginName }
 func (d DocLoader) Type() types.PluginType { return types.TypeProcess }
 func (d DocLoader) Version() string        { return PluginVersion }
 
-func (d DocLoader) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
+func (d *DocLoader) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	filePath := api.GetStringParameter("file_path", request, "")
 	if filePath == "" {
 		return api.NewFailedResponse("file_path is required"), nil
 	}
 
+	d.logger.Infow("docloader started", "file_path", filePath)
+
 	doc, err := d.loadDocument(ctx, request.WorkingPath, filePath)
 	if err != nil {
+		d.logger.Warnw("load document failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse(fmt.Sprintf("load document %s error: %s", filePath, err.Error())), nil
 	}
+
+	d.logger.Infow("docloader completed", "file_path", filePath, "title", doc.Properties.Title)
 
 	resp := api.NewResponseWithResult(map[string]any{
 		"file_path": filePath,
@@ -96,10 +111,6 @@ func (d DocLoader) loadDocument(ctx context.Context, workdir, filePath string) (
 	}
 
 	return doc, nil
-}
-
-func NewDocLoader() *DocLoader {
-	return &DocLoader{}
 }
 
 type Parser interface {

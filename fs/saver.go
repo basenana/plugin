@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
 	"github.com/basenana/plugin/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,7 +22,15 @@ var SavePluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type Saver struct{}
+type Saver struct {
+	logger *zap.SugaredLogger
+}
+
+func NewSaver(ps types.PluginCall) types.Plugin {
+	return &Saver{
+		logger: logger.NewPluginLogger(savePluginName, ps.JobID),
+	}
+}
 
 func (p *Saver) Name() string           { return savePluginName }
 func (p *Saver) Type() types.PluginType { return types.TypeProcess }
@@ -47,13 +57,17 @@ func (p *Saver) Run(ctx context.Context, request *api.Request) (*api.Response, e
 	parentURI := api.GetStringParameter("parent_uri", request, "")
 	properties := buildProperties(request)
 
+	p.logger.Infow("save started", "file_path", filePath, "name", name, "parent_uri", parentURI)
+
 	if request.FS == nil {
 		return api.NewFailedResponse("file system is not available"), nil
 	}
 	if err := request.FS.SaveEntry(ctx, parentURI, name, properties, file); err != nil {
+		p.logger.Warnw("save entry failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse("failed to save entry: " + err.Error()), nil
 	}
 
+	p.logger.Infow("save completed", "file_path", filePath)
 	return api.NewResponse(), nil
 }
 

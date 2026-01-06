@@ -29,7 +29,9 @@ import (
 	"syscall"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -44,7 +46,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type ArchivePlugin struct{}
+type ArchivePlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewArchivePlugin(ps types.PluginCall) types.Plugin {
+	return &ArchivePlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *ArchivePlugin) Name() string {
 	return pluginName
@@ -61,6 +71,8 @@ func (p *ArchivePlugin) Version() string {
 func (p *ArchivePlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	action := api.GetStringParameter("action", request, "extract")
 	format := api.GetStringParameter("format", request, "")
+
+	p.logger.Infow("archive plugin started", "action", action, "format", format)
 
 	if action == "compress" {
 		return p.runCompress(request, format)
@@ -102,9 +114,11 @@ func (p *ArchivePlugin) runExtract(request *api.Request, format string) (*api.Re
 	}
 
 	if err != nil {
+		p.logger.Warnw("extract failed", "file_path", filePath, "dest_path", destPath, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
+	p.logger.Infow("extract completed", "file_path", filePath, "dest_path", destPath)
 	return api.NewResponse(), nil
 }
 
@@ -149,15 +163,18 @@ func (p *ArchivePlugin) runCompress(request *api.Request, format string) (*api.R
 	}
 
 	if err != nil {
+		p.logger.Warnw("compress failed", "source_path", sourcePath, "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
 	// Return archive info
 	info, err := os.Stat(archivePath)
 	if err != nil {
+		p.logger.Infow("compress completed", "archive_path", archivePath)
 		return api.NewResponse(), nil
 	}
 
+	p.logger.Infow("compress completed", "archive_path", archivePath, "size", info.Size())
 	return api.NewResponseWithResult(map[string]any{
 		"file_path": archivePath,
 		"size":      info.Size(),
@@ -331,10 +348,6 @@ func extractGzip(src, dest string) error {
 	return nil
 }
 
-func NewArchivePlugin() *ArchivePlugin {
-	return &ArchivePlugin{}
-}
-
 // Compression functions
 
 func createZip(src, dest string) error {
@@ -378,8 +391,8 @@ func walkAndZip(root, baseDir string, zw *zip.Writer) error {
 			// Add directory entry to zip with proper Unix permissions
 			relPath = relPath + "/"
 			header := &zip.FileHeader{
-				Name:     relPath,
-				Method:   zip.Deflate,
+				Name:          relPath,
+				Method:        zip.Deflate,
 				ExternalAttrs: (uint32(info.Mode()) << 16) | unixDIR,
 			}
 			_, err := zw.CreateHeader(header)

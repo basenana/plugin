@@ -25,7 +25,9 @@ import (
 	"strings"
 
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -39,7 +41,15 @@ var PluginSpec = types.PluginSpec{
 	Type:    types.TypeProcess,
 }
 
-type FileWritePlugin struct{}
+type FileWritePlugin struct {
+	logger *zap.SugaredLogger
+}
+
+func NewFileWritePlugin(ps types.PluginCall) types.Plugin {
+	return &FileWritePlugin{
+		logger: logger.NewPluginLogger(pluginName, ps.JobID),
+	}
+}
 
 func (p *FileWritePlugin) Name() string {
 	return pluginName
@@ -76,16 +86,16 @@ func (p *FileWritePlugin) Run(ctx context.Context, request *api.Request) (*api.R
 		}
 	}
 
+	p.logger.Infow("filewrite started", "dest_path", destPath, "mode", modeStr)
+
 	// Write file
 	if err := os.WriteFile(destPath, []byte(content), os.FileMode(mode)); err != nil {
+		p.logger.Warnw("write file failed", "dest_path", destPath, "error", err)
 		return api.NewFailedResponse("write file failed: " + err.Error()), nil
 	}
 
+	p.logger.Infow("filewrite completed", "dest_path", destPath)
 	return api.NewResponse(), nil
-}
-
-func NewFileWritePlugin() *FileWritePlugin {
-	return &FileWritePlugin{}
 }
 
 func ResolvePath(path string, workingPath string) (string, error) {
