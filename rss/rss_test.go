@@ -54,17 +54,16 @@ func TestRssPlugin_Version(t *testing.T) {
 }
 
 func TestRssPlugin_MissingFeedURL(t *testing.T) {
-	p := &RssSourcePlugin{}
-
 	tmpDir, err := os.MkdirTemp("", "rss_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
+	p := NewRssPlugin(types.PluginCall{WorkingPath: tmpDir}).(*RssSourcePlugin)
+
 	req := &api.Request{
-		WorkingPath: tmpDir,
-		Parameter:   map[string]any{},
+		Parameter: map[string]any{},
 	}
 
 	// The rssSources method returns an error for missing feed URL
@@ -78,8 +77,6 @@ func TestRssPlugin_MissingFeedURL(t *testing.T) {
 }
 
 func TestRssPlugin_InvalidFeedURL(t *testing.T) {
-	p := &RssSourcePlugin{}
-
 	tmpDir, err := os.MkdirTemp("", "rss_test")
 	if err != nil {
 		t.Fatal(err)
@@ -90,8 +87,9 @@ func TestRssPlugin_InvalidFeedURL(t *testing.T) {
 	// It doesn't have a scheme but is structurally valid
 	// The actual error would come from trying to fetch it
 	// So we test that rssSources doesn't panic
+	p := NewRssPlugin(types.PluginCall{WorkingPath: tmpDir}).(*RssSourcePlugin)
+
 	req := &api.Request{
-		WorkingPath: tmpDir,
 		Parameter: map[string]any{
 			"feed": "not-a-valid-url",
 		},

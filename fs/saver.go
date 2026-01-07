@@ -62,7 +62,7 @@ func (p *Saver) Run(ctx context.Context, request *api.Request) (*api.Response, e
 	if request.FS == nil {
 		return api.NewFailedResponse("file system is not available"), nil
 	}
-	if err := request.FS.SaveEntry(ctx, parentURI, name, properties, file); err != nil {
+	if err = request.FS.SaveEntry(ctx, parentURI, name, properties, file); err != nil {
 		p.logger.Warnw("save entry failed", "file_path", filePath, "error", err)
 		return api.NewFailedResponse("failed to save entry: " + err.Error()), nil
 	}

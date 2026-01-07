@@ -24,6 +24,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -31,38 +32,43 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newFileOpPlugin() *FileOpPlugin {
+func newFileOpPlugin(workdir string) *FileOpPlugin {
 	p := &FileOpPlugin{}
 	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	p.fileRoot = utils.NewFileAccess(workdir)
 	return p
 }
 
+func newFileOpPluginWithTmpDir(t *testing.T) *FileOpPlugin {
+	return newFileOpPlugin(t.TempDir())
+}
+
 func TestFileOpPlugin_Name(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPluginWithTmpDir(t)
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestFileOpPlugin_Type(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPluginWithTmpDir(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestFileOpPlugin_Version(t *testing.T) {
-	p := &FileOpPlugin{}
+	p := newFileOpPluginWithTmpDir(t)
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestFileOpPlugin_Run_Copy(t *testing.T) {
-	p := newFileOpPlugin()
+	tmpDir := t.TempDir()
+	p := newFileOpPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "src.txt")
 	destFile := filepath.Join(tmpDir, "dest.txt")
 
@@ -97,10 +103,10 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Move(t *testing.T) {
-	p := newFileOpPlugin()
+	tmpDir := t.TempDir()
+	p := newFileOpPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "src.txt")
 	destFile := filepath.Join(tmpDir, "dest.txt")
 
@@ -143,10 +149,10 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Remove(t *testing.T) {
-	p := newFileOpPlugin()
+	tmpDir := t.TempDir()
+	p := newFileOpPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "to_delete.txt")
 
 	err := os.WriteFile(srcFile, []byte("test content"), 0644)
@@ -175,10 +181,10 @@ func TestFileOpPlugin_Run_Remove(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Rename(t *testing.T) {
-	p := newFileOpPlugin()
+	tmpDir := t.TempDir()
+	p := newFileOpPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	srcFile := filepath.Join(tmpDir, "old_name.txt")
 	destFile := filepath.Join(tmpDir, "new_name.txt")
 
@@ -213,7 +219,7 @@ func TestFileOpPlugin_Run_Rename(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
-	p := newFileOpPlugin()
+	p := newFileOpPluginWithTmpDir(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -235,7 +241,7 @@ func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_UnknownAction(t *testing.T) {
-	p := newFileOpPlugin()
+	p := newFileOpPluginWithTmpDir(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -258,36 +264,6 @@ func TestFileOpPlugin_Run_UnknownAction(t *testing.T) {
 }
 
 func TestResolvePath(t *testing.T) {
-	tests := []struct {
-		name       string
-		path       string
-		workingDir string
-		want       string
-	}{
-		{
-			name:       "absolute path",
-			path:       "/absolute/path/file.txt",
-			workingDir: "/working",
-			want:       "/absolute/path/file.txt",
-		},
-		{
-			name:       "relative path",
-			path:       "file.txt",
-			workingDir: "/working",
-			want:       "/working/file.txt",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := ResolvePath(tt.path, tt.workingDir)
-			if err != nil {
-				t.Errorf("ResolvePath() error = %v", err)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("ResolvePath() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	// ResolvePath function has been moved to utils/file.go as FileAccess method
+	// Tests are now in utils/file_test.go
 }

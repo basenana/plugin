@@ -93,8 +93,8 @@ func TestEPUB_Load(t *testing.T) {
 
 	createTestEPUB(t, epubPath, "Test Book", "Test Author", "Chapter content here")
 
-	loader := newDocLoader()
-	doc, err := loader.loadDocument(context.Background(), tmpDir, "test.epub")
+	loader := newDocLoader(tmpDir)
+	doc, err := loader.loadDocument(context.Background(), "test.epub")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

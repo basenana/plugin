@@ -32,14 +32,14 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newDocLoader() *DocLoader {
-	loader := NewDocLoader(types.PluginCall{JobID: "test-job"}).(*DocLoader)
+func newDocLoader(workdir string) *DocLoader {
+	loader := NewDocLoader(types.PluginCall{JobID: "test-job", WorkingPath: workdir}).(*DocLoader)
 	loader.logger = logger.NewPluginLogger(PluginName, "test-job")
 	return loader
 }
 
 func TestDocLoader_NameTypeVersion(t *testing.T) {
-	loader := newDocLoader()
+	loader := newDocLoader(".")
 	if loader.Name() != "docloader" {
 		t.Errorf("Name() = %q, want %q", loader.Name(), "docloader")
 	}
@@ -49,10 +49,9 @@ func TestDocLoader_NameTypeVersion(t *testing.T) {
 }
 
 func TestDocLoader_Run_MissingFilePath(t *testing.T) {
-	loader := newDocLoader()
+	loader := newDocLoader(".")
 	req := &api.Request{
-		Parameter:   map[string]any{},
-		WorkingPath: "/tmp",
+		Parameter: map[string]any{},
 	}
 
 	resp, _ := loader.Run(context.Background(), req)
@@ -62,10 +61,9 @@ func TestDocLoader_Run_MissingFilePath(t *testing.T) {
 }
 
 func TestDocLoader_Run_FileNotFound(t *testing.T) {
-	loader := newDocLoader()
+	loader := newDocLoader(".")
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "/nonexistent/file.pdf"},
-		WorkingPath: "/tmp",
+		Parameter: map[string]any{"file_path": "nonexistent/file.pdf"},
 	}
 
 	resp, _ := loader.Run(context.Background(), req)
@@ -75,8 +73,8 @@ func TestDocLoader_Run_FileNotFound(t *testing.T) {
 }
 
 func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
-	loader := newDocLoader()
 	tmpDir := t.TempDir()
+	loader := newDocLoader(tmpDir)
 	unsupportedPath := filepath.Join(tmpDir, "test.xyz")
 
 	if err := os.WriteFile(unsupportedPath, []byte("test content"), 0644); err != nil {
@@ -84,8 +82,7 @@ func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "test.xyz"},
-		WorkingPath: tmpDir,
+		Parameter: map[string]any{"file_path": "test.xyz"},
 	}
 
 	resp, _ := loader.Run(context.Background(), req)
@@ -95,8 +92,8 @@ func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
 }
 
 func TestDocLoader_Run_TextFile(t *testing.T) {
-	loader := newDocLoader()
 	tmpDir := t.TempDir()
+	loader := newDocLoader(tmpDir)
 	txtPath := filepath.Join(tmpDir, "test.txt")
 
 	content := `# Test Document
@@ -108,8 +105,7 @@ This is a test paragraph.`
 	}
 
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "test.txt"},
-		WorkingPath: tmpDir,
+		Parameter: map[string]any{"file_path": "test.txt"},
 	}
 
 	resp, err := loader.Run(context.Background(), req)
@@ -133,8 +129,8 @@ This is a test paragraph.`
 }
 
 func TestDocLoader_Run_MarkdownFile(t *testing.T) {
-	loader := newDocLoader()
 	tmpDir := t.TempDir()
+	loader := newDocLoader(tmpDir)
 	mdPath := filepath.Join(tmpDir, "document.md")
 
 	content := `# Markdown Document Title
@@ -146,8 +142,7 @@ Some content here.`
 	}
 
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "document.md"},
-		WorkingPath: tmpDir,
+		Parameter: map[string]any{"file_path": "document.md"},
 	}
 
 	resp, err := loader.Run(context.Background(), req)
@@ -163,8 +158,8 @@ Some content here.`
 }
 
 func TestDocLoader_Run_HTMLFile(t *testing.T) {
-	loader := newDocLoader()
 	tmpDir := t.TempDir()
+	loader := newDocLoader(tmpDir)
 	htmlPath := filepath.Join(tmpDir, "page.html")
 
 	htmlContent := `<!DOCTYPE html>
@@ -181,8 +176,7 @@ func TestDocLoader_Run_HTMLFile(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "page.html"},
-		WorkingPath: tmpDir,
+		Parameter: map[string]any{"file_path": "page.html"},
 	}
 
 	resp, err := loader.Run(context.Background(), req)
@@ -201,8 +195,8 @@ func TestDocLoader_Run_HTMLFile(t *testing.T) {
 }
 
 func TestDocLoader_Run_DefaultTitle(t *testing.T) {
-	loader := newDocLoader()
 	tmpDir := t.TempDir()
+	loader := newDocLoader(tmpDir)
 	txtPath := filepath.Join(tmpDir, "my_custom_file.txt")
 
 	// Content without any meaningful title (short line that would be skipped)
@@ -213,8 +207,7 @@ func TestDocLoader_Run_DefaultTitle(t *testing.T) {
 	}
 
 	req := &api.Request{
-		Parameter:   map[string]any{"file_path": "my_custom_file.txt"},
-		WorkingPath: tmpDir,
+		Parameter: map[string]any{"file_path": "my_custom_file.txt"},
 	}
 
 	resp, _ := loader.Run(context.Background(), req)

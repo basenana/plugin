@@ -19,10 +19,6 @@ package api
 import "encoding/json"
 
 type Request struct {
-	JobID       string
-	Namespace   string
-	WorkingPath string
-
 	PluginName string
 	Parameter  map[string]any
 

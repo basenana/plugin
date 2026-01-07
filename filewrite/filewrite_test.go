@@ -24,6 +24,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -31,44 +32,47 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newFileWritePlugin() *FileWritePlugin {
+func newFileWritePlugin(workdir string) *FileWritePlugin {
 	p := &FileWritePlugin{}
 	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	p.fileRoot = utils.NewFileAccess(workdir)
 	return p
 }
 
+func newFileWritePluginWithTmpDir(t *testing.T) *FileWritePlugin {
+	return newFileWritePlugin(t.TempDir())
+}
+
 func TestFileWritePlugin_Name(t *testing.T) {
-	p := newFileWritePlugin()
+	p := newFileWritePluginWithTmpDir(t)
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestFileWritePlugin_Type(t *testing.T) {
-	p := newFileWritePlugin()
+	p := newFileWritePluginWithTmpDir(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestFileWritePlugin_Version(t *testing.T) {
-	p := newFileWritePlugin()
+	p := newFileWritePluginWithTmpDir(t)
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
-	p := newFileWritePlugin()
-	ctx := context.Background()
-
 	tmpDir := t.TempDir()
-	destFile := filepath.Join(tmpDir, "test.txt")
+	p := newFileWritePlugin(tmpDir)
+	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
 			"content":   "hello world",
-			"dest_path": destFile,
+			"dest_path": "test.txt",
 			"mode":      "0644",
 		},
 	}
@@ -81,7 +85,7 @@ func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(destFile)
+	content, err := os.ReadFile(filepath.Join(tmpDir, "test.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,16 +95,14 @@ func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
-	p := newFileWritePlugin()
-	ctx := context.Background()
-
 	tmpDir := t.TempDir()
-	destFile := filepath.Join(tmpDir, "test.txt")
+	p := newFileWritePlugin(tmpDir)
+	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
 			"content":   "hello world",
-			"dest_path": destFile,
+			"dest_path": "test.txt",
 		},
 	}
 
@@ -112,7 +114,7 @@ func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(destFile)
+	content, err := os.ReadFile(filepath.Join(tmpDir, "test.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,16 +124,14 @@ func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
-	p := newFileWritePlugin()
-	ctx := context.Background()
-
 	tmpDir := t.TempDir()
-	destFile := filepath.Join(tmpDir, "subdir", "nested", "test.txt")
+	p := newFileWritePlugin(tmpDir)
+	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
 			"content":   "nested content",
-			"dest_path": destFile,
+			"dest_path": "subdir/nested/test.txt",
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(destFile)
+	content, err := os.ReadFile(filepath.Join(tmpDir, "subdir/nested/test.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
-	p := newFileWritePlugin()
+	p := newFileWritePluginWithTmpDir(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -175,16 +175,14 @@ func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
-	p := newFileWritePlugin()
-	ctx := context.Background()
-
 	tmpDir := t.TempDir()
-	destFile := filepath.Join(tmpDir, "test.txt")
+	p := newFileWritePlugin(tmpDir)
+	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
 			"content":   "hello world",
-			"dest_path": destFile,
+			"dest_path": "test.txt",
 			"mode":      "invalid",
 		},
 	}
@@ -199,16 +197,14 @@ func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
-	p := newFileWritePlugin()
-	ctx := context.Background()
-
 	tmpDir := t.TempDir()
-	destFile := filepath.Join(tmpDir, "empty.txt")
+	p := newFileWritePlugin(tmpDir)
+	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
 			"content":   "",
-			"dest_path": destFile,
+			"dest_path": "empty.txt",
 		},
 	}
 
@@ -220,7 +216,7 @@ func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	info, err := os.Stat(destFile)
+	info, err := os.Stat(filepath.Join(tmpDir, "empty.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,70 +227,62 @@ func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
 
 func TestResolvePath(t *testing.T) {
 	tests := []struct {
-		name       string
-		path       string
-		workingDir string
-		want       string
+		name        string
+		path        string
+		workingDir  string
+		want        string
+		wantErr     bool
 	}{
 		{
-			name:       "absolute path",
-			path:       "/absolute/path/file.txt",
-			workingDir: "/working",
-			want:       "/absolute/path/file.txt",
+			name:        "absolute path outside workdir",
+			path:        "/absolute/path/file.txt",
+			workingDir:  "/working",
+			wantErr:     true,
 		},
 		{
-			name:       "relative path",
-			path:       "file.txt",
-			workingDir: "/working",
-			want:       "/working/file.txt",
+			name:        "relative path",
+			path:        "file.txt",
+			workingDir:  "/working",
+			want:        "/working/file.txt",
+			wantErr:     false,
+		},
+		{
+			name:        "absolute path within workdir",
+			path:        "/working/dir/file.txt",
+			workingDir:  "/working",
+			want:        "/working/dir/file.txt",
+			wantErr:     false,
+		},
+		{
+			name:        "path traversal rejected",
+			path:        "../outside.txt",
+			workingDir:  "/working",
+			wantErr:     true,
+		},
+		{
+			name:        "empty path rejected",
+			path:        "",
+			workingDir:  "/working",
+			wantErr:     true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ResolvePath(tt.path, tt.workingDir)
-			if err != nil {
-				t.Errorf("ResolvePath() error = %v", err)
+			fa := utils.NewFileAccess(tt.workingDir)
+			got, err := fa.GetAbsPath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAbsPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("ResolvePath() = %v, want %v", got, tt.want)
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("GetAbsPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestSanitizePath(t *testing.T) {
-	tests := []struct {
-		name    string
-		path    string
-		want    string
-		wantErr bool
-	}{
-		{
-			name:    "normal path",
-			path:    "foo/bar.txt",
-			want:    "foo/bar.txt",
-			wantErr: false,
-		},
-		{
-			name:    "path traversal attempt",
-			path:    "../etc/passwd",
-			want:    "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := SanitizePath(tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SanitizePath() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("SanitizePath() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	// SanitizePath function has been moved to utils/file.go as FileAccess.ValidatePath
+	// Tests are now in utils/file_test.go
 }

@@ -595,7 +595,7 @@ func NewMockNanaFS() *MockNanaFS {
 	}
 }
 
-func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, write io.WriteCloser) error {
+func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, reader io.ReadCloser) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

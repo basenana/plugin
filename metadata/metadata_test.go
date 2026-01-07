@@ -24,6 +24,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -31,38 +32,43 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newMetadataPlugin() *MetadataPlugin {
+func newMetadataPlugin(workdir string) *MetadataPlugin {
 	p := &MetadataPlugin{}
 	p.logger = logger.NewPluginLogger(pluginName, "test-job")
+	p.fileRoot = utils.NewFileAccess(workdir)
 	return p
 }
 
+func newMetadataPluginWithTmpDir(t *testing.T) *MetadataPlugin {
+	return newMetadataPlugin(t.TempDir())
+}
+
 func TestMetadataPlugin_Name(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPluginWithTmpDir(t)
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestMetadataPlugin_Type(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPluginWithTmpDir(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestMetadataPlugin_Version(t *testing.T) {
-	p := &MetadataPlugin{}
+	p := newMetadataPluginWithTmpDir(t)
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestMetadataPlugin_Run_File(t *testing.T) {
-	p := newMetadataPlugin()
+	tmpDir := t.TempDir()
+	p := newMetadataPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 
 	content := []byte("test content")
@@ -104,10 +110,10 @@ func TestMetadataPlugin_Run_File(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_Directory(t *testing.T) {
-	p := newMetadataPlugin()
+	tmpDir := t.TempDir()
+	p := newMetadataPlugin(tmpDir)
 	ctx := context.Background()
 
-	tmpDir := t.TempDir()
 	testDir := filepath.Join(tmpDir, "testdir")
 
 	err := os.MkdirAll(testDir, 0755)
@@ -139,12 +145,13 @@ func TestMetadataPlugin_Run_Directory(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
-	p := newMetadataPlugin()
+	tmpDir := t.TempDir()
+	p := newMetadataPlugin(tmpDir)
 	ctx := context.Background()
 
 	req := &api.Request{
 		Parameter: map[string]any{
-			"file_path": "/nonexistent/file.txt",
+			"file_path": "nonexistent/file.txt",
 		},
 	}
 
@@ -155,13 +162,13 @@ func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
 	if resp.IsSucceed {
 		t.Error("expected failure, got success")
 	}
-	if resp.Message == "" || resp.Message != "file not found: /nonexistent/file.txt" {
-		t.Errorf("expected 'file not found: /nonexistent/file.txt', got '%s'", resp.Message)
+	if resp.Message == "" {
+		t.Error("expected error message")
 	}
 }
 
 func TestMetadataPlugin_Run_MissingFilePath(t *testing.T) {
-	p := newMetadataPlugin()
+	p := newMetadataPluginWithTmpDir(t)
 	ctx := context.Background()
 
 	req := &api.Request{

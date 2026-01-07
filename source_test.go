@@ -25,6 +25,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -33,35 +34,40 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newThreeBodyPlugin() *ThreeBodyPlugin {
+func newThreeBodyPlugin(workdir string) *ThreeBodyPlugin {
 	p := &ThreeBodyPlugin{}
 	p.logger = logger.NewPluginLogger(the3BodyPluginName, "test-job")
+	p.fileRoot = utils.NewFileAccess(workdir)
 	return p
 }
 
+func newThreeBodyPluginWithTmpDir(t *testing.T) *ThreeBodyPlugin {
+	return newThreeBodyPlugin(t.TempDir())
+}
+
 func TestThreeBodyPlugin_Name(t *testing.T) {
-	p := newThreeBodyPlugin()
+	p := newThreeBodyPluginWithTmpDir(t)
 	if p.Name() != the3BodyPluginName {
 		t.Errorf("expected %s, got %s", the3BodyPluginName, p.Name())
 	}
 }
 
 func TestThreeBodyPlugin_Type(t *testing.T) {
-	p := newThreeBodyPlugin()
+	p := newThreeBodyPluginWithTmpDir(t)
 	if string(p.Type()) != "source" {
 		t.Errorf("expected source, got %s", p.Type())
 	}
 }
 
 func TestThreeBodyPlugin_Version(t *testing.T) {
-	p := newThreeBodyPlugin()
+	p := newThreeBodyPluginWithTmpDir(t)
 	if p.Version() != the3BodyPluginVersion {
 		t.Errorf("expected %s, got %s", the3BodyPluginVersion, p.Version())
 	}
 }
 
 func TestThreeBodyPlugin_SourceInfo(t *testing.T) {
-	p := newThreeBodyPlugin()
+	p := newThreeBodyPluginWithTmpDir(t)
 	info, err := p.SourceInfo()
 	if err != nil {
 		t.Fatal(err)
@@ -72,18 +78,16 @@ func TestThreeBodyPlugin_SourceInfo(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_Run(t *testing.T) {
-	p := newThreeBodyPlugin()
-	ctx := context.Background()
-
 	tmpDir, err := os.MkdirTemp("", "threebody_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	req := &api.Request{
-		WorkingPath: tmpDir,
-	}
+	p := newThreeBodyPlugin(tmpDir)
+	ctx := context.Background()
+
+	req := &api.Request{}
 
 	resp, err := p.Run(ctx, req)
 	if err != nil {
@@ -126,38 +130,33 @@ func TestThreeBodyPlugin_Run(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_MissingWorkingPath(t *testing.T) {
-	p := newThreeBodyPlugin()
+	// When workdir is empty, FileAccess defaults to "."
+	// So this test verifies the plugin handles empty workdir gracefully
+	p := newThreeBodyPlugin("")
 	ctx := context.Background()
 
-	req := &api.Request{
-		WorkingPath: "",
-	}
+	req := &api.Request{}
 
 	_, err := p.Run(ctx, req)
 
-	if err == nil {
-		t.Error("expected error for missing working path")
-	}
-	if err.Error() != "workdir is empty" {
-		t.Errorf("expected 'workdir is empty', got %s", err.Error())
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestThreeBodyPlugin_Run_Multiple(t *testing.T) {
-	p := newThreeBodyPlugin()
-	ctx := context.Background()
-
 	tmpDir, err := os.MkdirTemp("", "threebody_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
+	p := newThreeBodyPlugin(tmpDir)
+	ctx := context.Background()
+
 	// Run multiple times
 	for i := 0; i < 3; i++ {
-		req := &api.Request{
-			WorkingPath: tmpDir,
-		}
+		req := &api.Request{}
 
 		resp, err := p.Run(ctx, req)
 		if err != nil {
@@ -181,18 +180,16 @@ func TestThreeBodyPlugin_Run_Multiple(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_FileNaming(t *testing.T) {
-	p := newThreeBodyPlugin()
-	ctx := context.Background()
-
 	tmpDir, err := os.MkdirTemp("", "threebody_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	req := &api.Request{
-		WorkingPath: tmpDir,
-	}
+	p := newThreeBodyPlugin(tmpDir)
+	ctx := context.Background()
+
+	req := &api.Request{}
 
 	resp, err := p.Run(ctx, req)
 	if err != nil {
@@ -217,18 +214,16 @@ func TestThreeBodyPlugin_FileNaming(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_FileContent(t *testing.T) {
-	p := newThreeBodyPlugin()
-	ctx := context.Background()
-
 	tmpDir, err := os.MkdirTemp("", "threebody_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	req := &api.Request{
-		WorkingPath: tmpDir,
-	}
+	p := newThreeBodyPlugin(tmpDir)
+	ctx := context.Background()
+
+	req := &api.Request{}
 
 	resp, err := p.Run(ctx, req)
 	if err != nil {
