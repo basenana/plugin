@@ -18,13 +18,11 @@ package metadata
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
-	"github.com/basenana/plugin/utils"
+	"github.com/basenana/plugin/types"
 	"go.uber.org/zap"
 )
 
@@ -32,54 +30,53 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newMetadataPlugin(workdir string) *MetadataPlugin {
-	p := &MetadataPlugin{}
-	p.logger = logger.NewPluginLogger(pluginName, "test-job")
-	p.fileRoot = utils.NewFileAccess(workdir)
-	return p
-}
-
-func newMetadataPluginWithTmpDir(t *testing.T) *MetadataPlugin {
-	return newMetadataPlugin(t.TempDir())
+func newMetadataPlugin(t *testing.T, workdir string) *MetadataPlugin {
+	return NewMetadataPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: workdir,
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*MetadataPlugin)
 }
 
 func TestMetadataPlugin_Name(t *testing.T) {
-	p := newMetadataPluginWithTmpDir(t)
+	p := newMetadataPlugin(t, t.TempDir())
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestMetadataPlugin_Type(t *testing.T) {
-	p := newMetadataPluginWithTmpDir(t)
+	p := newMetadataPlugin(t, t.TempDir())
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestMetadataPlugin_Version(t *testing.T) {
-	p := newMetadataPluginWithTmpDir(t)
+	p := newMetadataPlugin(t, t.TempDir())
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestMetadataPlugin_Run_File(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newMetadataPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newMetadataPlugin(t, workdir)
 	ctx := context.Background()
 
-	testFile := filepath.Join(tmpDir, "test.txt")
-
 	content := []byte("test content")
-	err := os.WriteFile(testFile, content, 0644)
+	err := p.fileRoot.Write("test.txt", content, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req := &api.Request{
 		Parameter: map[string]any{
-			"file_path": testFile,
+			"file_path": "test.txt",
 		},
 	}
 
@@ -110,20 +107,18 @@ func TestMetadataPlugin_Run_File(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_Directory(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newMetadataPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newMetadataPlugin(t, workdir)
 	ctx := context.Background()
 
-	testDir := filepath.Join(tmpDir, "testdir")
-
-	err := os.MkdirAll(testDir, 0755)
+	err := p.fileRoot.MkdirAll("testdir", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req := &api.Request{
 		Parameter: map[string]any{
-			"file_path": testDir,
+			"file_path": "testdir",
 		},
 	}
 
@@ -145,8 +140,7 @@ func TestMetadataPlugin_Run_Directory(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newMetadataPlugin(tmpDir)
+	p := newMetadataPlugin(t, t.TempDir())
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -168,7 +162,7 @@ func TestMetadataPlugin_Run_FileNotFound(t *testing.T) {
 }
 
 func TestMetadataPlugin_Run_MissingFilePath(t *testing.T) {
-	p := newMetadataPluginWithTmpDir(t)
+	p := newMetadataPlugin(t, t.TempDir())
 	ctx := context.Background()
 
 	req := &api.Request{

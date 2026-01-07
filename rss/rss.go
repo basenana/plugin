@@ -352,16 +352,15 @@ func (s *rssSource) isNew(ctx context.Context, linkStr string) (bool, error) {
 		return false, nil
 	}
 
-	if !strings.Contains(err.Error(), "no record") {
-		return false, err
+	if strings.Contains(err.Error(), "no record") {
+		return true, nil
 	}
 
-	v["time"] = time.Now().Format(time.RFC3339)
-	err = s.Store.Save(ctx, RssSourcePluginName, "source", k, &v)
-	if err == nil {
-		return false, nil
+	if strings.Contains(err.Error(), "not found") {
+		return true, nil
 	}
-	return true, nil
+
+	return false, err
 }
 
 func (s *rssSource) record(ctx context.Context, linkList ...string) error {

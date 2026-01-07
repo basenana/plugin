@@ -17,8 +17,6 @@
 package docloader
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/basenana/plugin/types"
@@ -156,9 +154,6 @@ func TestText_ExtractContentMetadata_Abstract(t *testing.T) {
 }
 
 func TestText_Load(t *testing.T) {
-	tmpDir := t.TempDir()
-	txtPath := filepath.Join(tmpDir, "test.txt")
-
 	content := `# Test Document
 
 This is a test paragraph.
@@ -166,11 +161,12 @@ This is another test paragraph.
 
 More content here.`
 
-	if err := os.WriteFile(txtPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("test.txt", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewText(txtPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("test.txt")
+	parser := NewText(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -185,16 +181,14 @@ More content here.`
 }
 
 func TestText_Load_WithFileNameMetadata(t *testing.T) {
-	tmpDir := t.TempDir()
-	txtPath := filepath.Join(tmpDir, "Author_Title_2024.txt")
-
 	content := `Just some content without title.`
 
-	if err := os.WriteFile(txtPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("Author_Title_2024.txt", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewText(txtPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("Author_Title_2024.txt")
+	parser := NewText(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -212,18 +206,16 @@ func TestText_Load_WithFileNameMetadata(t *testing.T) {
 }
 
 func TestText_Load_Markdown(t *testing.T) {
-	tmpDir := t.TempDir()
-	mdPath := filepath.Join(tmpDir, "document.md")
-
 	content := `# Markdown Title
 
 Some **formatted** content.`
 
-	if err := os.WriteFile(mdPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("document.md", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewText(mdPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("document.md")
+	parser := NewText(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)

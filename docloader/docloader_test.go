@@ -18,13 +18,12 @@ package docloader
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -32,14 +31,23 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newDocLoader(workdir string) *DocLoader {
-	loader := NewDocLoader(types.PluginCall{JobID: "test-job", WorkingPath: workdir}).(*DocLoader)
-	loader.logger = logger.NewPluginLogger(PluginName, "test-job")
-	return loader
+// testFileAccess provides a unified FileAccess for all tests in the package
+var testFileAccess = utils.NewFileAccess("")
+
+func newDocLoader(t *testing.T) *DocLoader {
+	return NewDocLoader(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: testFileAccess.Workdir(),
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*DocLoader)
 }
 
 func TestDocLoader_NameTypeVersion(t *testing.T) {
-	loader := newDocLoader(".")
+	loader := newDocLoader(t)
 	if loader.Name() != "docloader" {
 		t.Errorf("Name() = %q, want %q", loader.Name(), "docloader")
 	}
@@ -49,7 +57,7 @@ func TestDocLoader_NameTypeVersion(t *testing.T) {
 }
 
 func TestDocLoader_Run_MissingFilePath(t *testing.T) {
-	loader := newDocLoader(".")
+	loader := newDocLoader(t)
 	req := &api.Request{
 		Parameter: map[string]any{},
 	}
@@ -61,7 +69,7 @@ func TestDocLoader_Run_MissingFilePath(t *testing.T) {
 }
 
 func TestDocLoader_Run_FileNotFound(t *testing.T) {
-	loader := newDocLoader(".")
+	loader := newDocLoader(t)
 	req := &api.Request{
 		Parameter: map[string]any{"file_path": "nonexistent/file.pdf"},
 	}
@@ -73,11 +81,9 @@ func TestDocLoader_Run_FileNotFound(t *testing.T) {
 }
 
 func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
-	tmpDir := t.TempDir()
-	loader := newDocLoader(tmpDir)
-	unsupportedPath := filepath.Join(tmpDir, "test.xyz")
+	loader := newDocLoader(t)
 
-	if err := os.WriteFile(unsupportedPath, []byte("test content"), 0644); err != nil {
+	if err := testFileAccess.Write("test.xyz", []byte("test content"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -92,15 +98,13 @@ func TestDocLoader_Run_UnsupportedFormat(t *testing.T) {
 }
 
 func TestDocLoader_Run_TextFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	loader := newDocLoader(tmpDir)
-	txtPath := filepath.Join(tmpDir, "test.txt")
+	loader := newDocLoader(t)
 
 	content := `# Test Document
 
 This is a test paragraph.`
 
-	if err := os.WriteFile(txtPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("test.txt", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -129,15 +133,13 @@ This is a test paragraph.`
 }
 
 func TestDocLoader_Run_MarkdownFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	loader := newDocLoader(tmpDir)
-	mdPath := filepath.Join(tmpDir, "document.md")
+	loader := newDocLoader(t)
 
 	content := `# Markdown Document Title
 
 Some content here.`
 
-	if err := os.WriteFile(mdPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("document.md", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -158,9 +160,7 @@ Some content here.`
 }
 
 func TestDocLoader_Run_HTMLFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	loader := newDocLoader(tmpDir)
-	htmlPath := filepath.Join(tmpDir, "page.html")
+	loader := newDocLoader(t)
 
 	htmlContent := `<!DOCTYPE html>
 <html>
@@ -171,7 +171,7 @@ func TestDocLoader_Run_HTMLFile(t *testing.T) {
 <body>Content here</body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("page.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -195,14 +195,12 @@ func TestDocLoader_Run_HTMLFile(t *testing.T) {
 }
 
 func TestDocLoader_Run_DefaultTitle(t *testing.T) {
-	tmpDir := t.TempDir()
-	loader := newDocLoader(tmpDir)
-	txtPath := filepath.Join(tmpDir, "my_custom_file.txt")
+	loader := newDocLoader(t)
 
 	// Content without any meaningful title (short line that would be skipped)
 	content := `12345`
 
-	if err := os.WriteFile(txtPath, []byte(content), 0644); err != nil {
+	if err := testFileAccess.Write("my_custom_file.txt", []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 

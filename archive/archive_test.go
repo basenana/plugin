@@ -29,46 +29,53 @@ import (
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
 func TestMain(m *testing.M) {
-	// Initialize logger for tests
 	logger.SetLogger(zap.NewNop().Sugar())
 	os.Exit(m.Run())
 }
 
-func newArchivePlugin(workdir string) *ArchivePlugin {
-	return NewArchivePlugin(types.PluginCall{JobID: "test-job", WorkingPath: workdir}).(*ArchivePlugin)
-}
-
-func newArchivePluginWithTmpDir(t *testing.T) *ArchivePlugin {
-	return newArchivePlugin(t.TempDir())
+func newArchivePlugin(t *testing.T) (*ArchivePlugin, *utils.FileAccess) {
+	workdir := t.TempDir()
+	fa := utils.NewFileAccess(workdir)
+	p := NewArchivePlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: workdir,
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*ArchivePlugin)
+	return p, fa
 }
 
 func TestArchivePlugin_Name(t *testing.T) {
-	p := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestArchivePlugin_Type(t *testing.T) {
-	p := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestArchivePlugin_Version(t *testing.T) {
-	p := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestArchivePlugin_Extract_MissingFilePath(t *testing.T) {
-	p := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -85,23 +92,17 @@ func TestArchivePlugin_Extract_MissingFilePath(t *testing.T) {
 	if resp.IsSucceed {
 		t.Error("expected failure, got success")
 	}
-	if resp.Message == "" || resp.Message != "file_path is required" {
+	if resp.Message != "file_path is required" {
 		t.Errorf("expected 'file_path is required', got '%s'", resp.Message)
 	}
 }
 
 func TestArchivePlugin_Extract_MissingFormat(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	zipPath := filepath.Join(tmpDir, "test.zip")
-	os.WriteFile(zipPath, []byte("test"), 0644)
-
-	p := newArchivePlugin(tmpDir)
+	p, fa := newArchivePlugin(t)
 	ctx := context.Background()
+
+	zipPath := "test.zip"
+	fa.Write(zipPath, []byte("test"), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -117,23 +118,17 @@ func TestArchivePlugin_Extract_MissingFormat(t *testing.T) {
 	if resp.IsSucceed {
 		t.Error("expected failure, got success")
 	}
-	if resp.Message == "" || resp.Message != "format is required" {
+	if resp.Message != "format is required" {
 		t.Errorf("expected 'format is required', got '%s'", resp.Message)
 	}
 }
 
 func TestArchivePlugin_Extract_InvalidFormat(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	zipPath := filepath.Join(tmpDir, "test.zip")
-	os.WriteFile(zipPath, []byte("test"), 0644)
-
-	p := newArchivePlugin(tmpDir)
+	p, fa := newArchivePlugin(t)
 	ctx := context.Background()
+
+	zipPath := "test.zip"
+	fa.Write(zipPath, []byte("test"), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -153,18 +148,10 @@ func TestArchivePlugin_Extract_InvalidFormat(t *testing.T) {
 }
 
 func TestArchivePlugin_Extract_InvalidZipFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create an invalid zip file
-	zipPath := filepath.Join(tmpDir, "invalid.zip")
-	os.WriteFile(zipPath, []byte("this is not a valid zip file"), 0644)
-
-	p := newArchivePlugin(tmpDir)
+	p, fa := newArchivePlugin(t)
 	ctx := context.Background()
+
+	fa.Write("invalid.zip", []byte("this is not a valid zip file"), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -185,16 +172,10 @@ func TestArchivePlugin_Extract_InvalidZipFile(t *testing.T) {
 }
 
 func TestArchivePlugin_Extract_ValidZip(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	p, fa := newArchivePlugin(t)
+	ctx := context.Background()
 
-	// Create a valid zip file
 	testContent := "Hello, World!"
-	zipPath := filepath.Join(tmpDir, "test.zip")
-
 	var buf bytes.Buffer
 	zipWriter := zip.NewWriter(&buf)
 	w, err := zipWriter.Create("hello.txt")
@@ -206,10 +187,7 @@ func TestArchivePlugin_Extract_ValidZip(t *testing.T) {
 		t.Fatal(err)
 	}
 	zipWriter.Close()
-	os.WriteFile(zipPath, buf.Bytes(), 0644)
-
-	p := newArchivePlugin(tmpDir)
-	ctx := context.Background()
+	fa.Write("test.zip", buf.Bytes(), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -228,7 +206,7 @@ func TestArchivePlugin_Extract_ValidZip(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmpDir, "dest", "hello.txt"))
+	data, err := fa.Read(filepath.Join("dest", "hello.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +216,7 @@ func TestArchivePlugin_Extract_ValidZip(t *testing.T) {
 }
 
 func TestArchivePlugin_Compress_MissingSourcePath(t *testing.T) {
-	p := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -255,25 +233,18 @@ func TestArchivePlugin_Compress_MissingSourcePath(t *testing.T) {
 	if resp.IsSucceed {
 		t.Error("expected failure, got success")
 	}
-	if resp.Message == "" || resp.Message != "source_path is required for compression" {
+	if resp.Message != "source_path is required for compression" {
 		t.Errorf("expected 'source_path is required for compression', got '%s'", resp.Message)
 	}
 }
 
 func TestArchivePlugin_Compress_Zip(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create source files
-	os.MkdirAll(filepath.Join(tmpDir, "source"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "source", "file1.txt"), []byte("content1"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "source", "file2.txt"), []byte("content2"), 0644)
-
-	p := newArchivePlugin(tmpDir)
+	p, fa := newArchivePlugin(t)
 	ctx := context.Background()
+
+	fa.MkdirAll("source", 0755)
+	fa.Write(filepath.Join("source", "file1.txt"), []byte("content1"), 0644)
+	fa.Write(filepath.Join("source", "file2.txt"), []byte("content2"), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -292,19 +263,17 @@ func TestArchivePlugin_Compress_Zip(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	zipPath := filepath.Join(tmpDir, "test.zip")
-	if _, err := os.Stat(zipPath); os.IsNotExist(err) {
+	zipPath := "test.zip"
+	if !fa.Exists(zipPath) {
 		t.Errorf("expected zip file to exist at %s", zipPath)
 	}
 
-	// Verify zip contents
-	reader, err := zip.OpenReader(zipPath)
+	reader, err := zip.OpenReader(filepath.Join(fa.Workdir(), zipPath))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reader.Close()
 
-	// Filter out directory entries (ending with /)
 	var files []*zip.File
 	for _, f := range reader.File {
 		if !strings.HasSuffix(f.Name, "/") {
@@ -338,18 +307,11 @@ func TestArchivePlugin_Compress_Zip(t *testing.T) {
 }
 
 func TestArchivePlugin_Compress_SingleFile(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "archive_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create a single source file
-	content := "single file content"
-	os.WriteFile(filepath.Join(tmpDir, "single.txt"), []byte(content), 0644)
-
-	p := newArchivePlugin(tmpDir)
+	p, fa := newArchivePlugin(t)
 	ctx := context.Background()
+
+	content := "single file content"
+	fa.Write("single.txt", []byte(content), 0644)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -367,13 +329,11 @@ func TestArchivePlugin_Compress_SingleFile(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	// The result is directly in resp.Results
 	archivePath, ok := resp.Results["file_path"].(string)
 	if !ok {
 		t.Fatal("expected file_path in response results")
 	}
 
-	// archivePath is absolute, use it directly
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		t.Fatal(err)
@@ -399,28 +359,12 @@ func TestArchivePlugin_GenerateArchiveName(t *testing.T) {
 		{"file.gz", "gzip", "file.gz"},
 	}
 
-	plugin := newArchivePluginWithTmpDir(t)
+	p, _ := newArchivePlugin(t)
 	for _, tt := range tests {
-		result := plugin.generateArchiveName(tt.sourcePath, tt.format)
+		result := p.generateArchiveName(tt.sourcePath, tt.format)
 		if result != tt.expected {
 			t.Errorf("generateArchiveName(%q, %q) = %q, expected %q",
 				tt.sourcePath, tt.format, result, tt.expected)
 		}
 	}
-}
-
-func TestExtractZip_Function(t *testing.T) {
-	// extractZip is now a method on ArchivePlugin, tested via TestArchivePlugin_Extract
-}
-
-func TestExtractZip_Empty(t *testing.T) {
-	// extractZip is now a method on ArchivePlugin, tested via TestArchivePlugin_Extract
-}
-
-func TestCreateZip_Directory(t *testing.T) {
-	// createZip is now a method on ArchivePlugin, tested via TestArchivePlugin_Compress
-}
-
-func TestCreateZip_SingleFile(t *testing.T) {
-	// createZip is now a method on ArchivePlugin, tested via TestArchivePlugin_Compress
 }

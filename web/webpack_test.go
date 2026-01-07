@@ -31,28 +31,34 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func newWebpackPlugin() *WebpackPlugin {
-	p := &WebpackPlugin{}
-	p.logger = logger.NewPluginLogger(WebpackPluginName, "test-job")
-	return p
+func newWebpackPlugin(t *testing.T) *WebpackPlugin {
+	return NewWebpackPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: t.TempDir(),
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*WebpackPlugin)
 }
 
 func TestWebpackPlugin_Name(t *testing.T) {
-	p := newWebpackPlugin()
+	p := newWebpackPlugin(t)
 	if p.Name() != WebpackPluginName {
 		t.Errorf("expected %s, got %s", WebpackPluginName, p.Name())
 	}
 }
 
 func TestWebpackPlugin_Type(t *testing.T) {
-	p := newWebpackPlugin()
+	p := newWebpackPlugin(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestWebpackPlugin_Version(t *testing.T) {
-	p := newWebpackPlugin()
+	p := newWebpackPlugin(t)
 	if p.Version() != WebpackPluginVersion {
 		t.Errorf("expected %s, got %s", WebpackPluginVersion, p.Version())
 	}
@@ -60,7 +66,8 @@ func TestWebpackPlugin_Version(t *testing.T) {
 
 func TestNewWebpackPlugin_DefaultFileType(t *testing.T) {
 	p := NewWebpackPlugin(types.PluginCall{
-		Params: map[string]string{},
+		WorkingPath: t.TempDir(),
+		Params:      map[string]string{},
 	}).(*WebpackPlugin)
 
 	if p.fileType != "webarchive" {
@@ -70,6 +77,7 @@ func TestNewWebpackPlugin_DefaultFileType(t *testing.T) {
 
 func TestNewWebpackPlugin_CustomFileType(t *testing.T) {
 	p := NewWebpackPlugin(types.PluginCall{
+		WorkingPath: t.TempDir(),
 		Params: map[string]string{
 			webpackParameterFileType: "html",
 		},
@@ -82,7 +90,8 @@ func TestNewWebpackPlugin_CustomFileType(t *testing.T) {
 
 func TestNewWebpackPlugin_DefaultClutterFree(t *testing.T) {
 	p := NewWebpackPlugin(types.PluginCall{
-		Params: map[string]string{},
+		WorkingPath: t.TempDir(),
+		Params:      map[string]string{},
 	}).(*WebpackPlugin)
 
 	if p.clutterFree != true {
@@ -104,6 +113,7 @@ func TestNewWebpackPlugin_CustomClutterFree(t *testing.T) {
 
 	for _, tt := range tests {
 		p := NewWebpackPlugin(types.PluginCall{
+			WorkingPath: t.TempDir(),
 			Params: map[string]string{
 				webpackParameterClutterFree: tt.value,
 			},
@@ -199,5 +209,17 @@ func TestEnablePrivateNet(t *testing.T) {
 	// It reads from environment variable
 	if enablePrivateNet != (os.Getenv("WebPackerEnablePrivateNet") == "true") {
 		t.Errorf("enablePrivateNet mismatch")
+	}
+}
+
+func TestWebpackPlugin_FileAccessWorkdir(t *testing.T) {
+	workdir := t.TempDir()
+	p := NewWebpackPlugin(types.PluginCall{
+		WorkingPath: workdir,
+		Params:      map[string]string{},
+	}).(*WebpackPlugin)
+
+	if p.fileRoot.Workdir() != workdir {
+		t.Errorf("expected fileRoot workdir %s, got %s", workdir, p.fileRoot.Workdir())
 	}
 }

@@ -17,16 +17,11 @@
 package docloader
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestHTML_ExtractMetadata(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlPath := filepath.Join(tmpDir, "test.html")
-
 	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
@@ -40,11 +35,12 @@ func TestHTML_ExtractMetadata(t *testing.T) {
 </body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("test.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test HTML file: %v", err)
 	}
 
-	got := extractHTMLMetadata(htmlPath)
+	absPath, _ := testFileAccess.GetAbsPath("test.html")
+	got := extractHTMLMetadata(absPath)
 
 	if got.Title != "Test Document Title" {
 		t.Errorf("title = %q, want %q", got.Title, "Test Document Title")
@@ -55,12 +51,12 @@ func TestHTML_ExtractMetadata(t *testing.T) {
 	if got.Abstract != "This is a test description" {
 		t.Errorf("abstract = %q, want %q", got.Abstract, "This is a test description")
 	}
+	if len(got.Keywords) != 3 || got.Keywords[0] != "go" || got.Keywords[1] != "testing" || got.Keywords[2] != "unit-test" {
+		t.Errorf("keywords = %v, want [go, testing, unit-test]", got.Keywords)
+	}
 }
 
 func TestHTML_ExtractMetadata_OGTags(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlPath := filepath.Join(tmpDir, "og_test.html")
-
 	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
@@ -73,11 +69,12 @@ func TestHTML_ExtractMetadata_OGTags(t *testing.T) {
 <body>Test</body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("og_test.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test HTML file: %v", err)
 	}
 
-	got := extractHTMLMetadata(htmlPath)
+	absPath, _ := testFileAccess.GetAbsPath("og_test.html")
+	got := extractHTMLMetadata(absPath)
 
 	// OG tags should override empty title tag
 	if got.Title != "OG Title" {
@@ -95,9 +92,6 @@ func TestHTML_ExtractMetadata_OGTags(t *testing.T) {
 }
 
 func TestHTML_ExtractMetadata_DCTags(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlPath := filepath.Join(tmpDir, "dc_test.html")
-
 	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
@@ -109,11 +103,12 @@ func TestHTML_ExtractMetadata_DCTags(t *testing.T) {
 <body>Test</body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("dc_test.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test HTML file: %v", err)
 	}
 
-	got := extractHTMLMetadata(htmlPath)
+	absPath, _ := testFileAccess.GetAbsPath("dc_test.html")
+	got := extractHTMLMetadata(absPath)
 
 	if got.Author != "DC Author" {
 		t.Errorf("author = %q, want %q", got.Author, "DC Author")
@@ -130,9 +125,6 @@ func TestHTML_ExtractMetadata_DCTags(t *testing.T) {
 }
 
 func TestHTML_TitleFromTag(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlPath := filepath.Join(tmpDir, "title_test.html")
-
 	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
@@ -141,11 +133,12 @@ func TestHTML_TitleFromTag(t *testing.T) {
 <body>Test content</body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("title_test.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test HTML file: %v", err)
 	}
 
-	got := extractHTMLMetadata(htmlPath)
+	absPath, _ := testFileAccess.GetAbsPath("title_test.html")
+	got := extractHTMLMetadata(absPath)
 
 	if got.Title != "HTML Tag Title" {
 		t.Errorf("title = %q, want %q", got.Title, "HTML Tag Title")
@@ -153,9 +146,6 @@ func TestHTML_TitleFromTag(t *testing.T) {
 }
 
 func TestHTML_Load(t *testing.T) {
-	tmpDir := t.TempDir()
-	htmlPath := filepath.Join(tmpDir, "load_test.html")
-
 	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
@@ -167,11 +157,12 @@ func TestHTML_Load(t *testing.T) {
 </body>
 </html>`
 
-	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+	if err := testFileAccess.Write("load_test.html", []byte(htmlContent), 0644); err != nil {
 		t.Fatalf("Failed to create test HTML file: %v", err)
 	}
 
-	parser := NewHTML(htmlPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("load_test.html")
+	parser := NewHTML(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)

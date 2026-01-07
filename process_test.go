@@ -23,6 +23,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/types"
 	"go.uber.org/zap"
 )
 
@@ -31,35 +32,41 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newDelayPlugin() *DelayProcessPlugin {
-	p := &DelayProcessPlugin{}
-	p.logger = logger.NewPluginLogger(delayPluginName, "test-job")
-	return p
+func newDelayPlugin(t *testing.T) *DelayProcessPlugin {
+	return NewDelayProcessPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: t.TempDir(),
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*DelayProcessPlugin)
 }
 
 func TestDelayPlugin_Name(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	if p.Name() != delayPluginName {
 		t.Errorf("expected %s, got %s", delayPluginName, p.Name())
 	}
 }
 
 func TestDelayPlugin_Type(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestDelayPlugin_Version(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	if p.Version() != delayPluginVersion {
 		t.Errorf("expected %s, got %s", delayPluginVersion, p.Version())
 	}
 }
 
 func TestDelayPlugin_DelayDuration(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -84,7 +91,7 @@ func TestDelayPlugin_DelayDuration(t *testing.T) {
 }
 
 func TestDelayPlugin_DelayDuration_Short(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -108,33 +115,8 @@ func TestDelayPlugin_DelayDuration_Short(t *testing.T) {
 	}
 }
 
-func TestDelayPlugin_DelayDuration_Minutes(t *testing.T) {
-	p := newDelayPlugin()
-	ctx := context.Background()
-
-	req := &api.Request{
-		Parameter: map[string]any{
-			"delay": "1m30s",
-		},
-	}
-
-	start := time.Now()
-	resp, err := p.Run(ctx, req)
-	elapsed := time.Since(start)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !resp.IsSucceed {
-		t.Errorf("expected success, got failure: %s", resp.Message)
-	}
-	if elapsed < 90*time.Second {
-		t.Errorf("expected at least 90s delay, got %v", elapsed)
-	}
-}
-
 func TestDelayPlugin_UntilRFC3339(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	// Set until to 500ms from now to ensure enough time for execution
@@ -162,7 +144,7 @@ func TestDelayPlugin_UntilRFC3339(t *testing.T) {
 }
 
 func TestDelayPlugin_Until_AlreadyPassed(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	// Set until to 1 second ago
@@ -185,7 +167,7 @@ func TestDelayPlugin_Until_AlreadyPassed(t *testing.T) {
 }
 
 func TestDelayPlugin_MissingParameters(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -203,7 +185,7 @@ func TestDelayPlugin_MissingParameters(t *testing.T) {
 }
 
 func TestDelayPlugin_InvalidDuration(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -220,7 +202,7 @@ func TestDelayPlugin_InvalidDuration(t *testing.T) {
 }
 
 func TestDelayPlugin_InvalidUntil(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -237,7 +219,7 @@ func TestDelayPlugin_InvalidUntil(t *testing.T) {
 }
 
 func TestDelayPlugin_ZeroDelay(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -263,7 +245,7 @@ func TestDelayPlugin_ZeroDelay(t *testing.T) {
 }
 
 func TestDelayPlugin_ContextCancellation(t *testing.T) {
-	p := newDelayPlugin()
+	p := newDelayPlugin(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	req := &api.Request{

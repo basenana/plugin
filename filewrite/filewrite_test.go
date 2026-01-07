@@ -18,12 +18,11 @@ package filewrite
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/types"
 	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
@@ -32,41 +31,58 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newFileWritePlugin(workdir string) *FileWritePlugin {
-	p := &FileWritePlugin{}
-	p.logger = logger.NewPluginLogger(pluginName, "test-job")
-	p.fileRoot = utils.NewFileAccess(workdir)
-	return p
+type testContext struct {
+	workdir string
+	fa      *utils.FileAccess
 }
 
-func newFileWritePluginWithTmpDir(t *testing.T) *FileWritePlugin {
-	return newFileWritePlugin(t.TempDir())
+func newTestContext(t *testing.T) *testContext {
+	workdir := t.TempDir()
+	return &testContext{
+		workdir: workdir,
+		fa:      utils.NewFileAccess(workdir),
+	}
+}
+
+func (tc *testContext) newPlugin() *FileWritePlugin {
+	return NewFileWritePlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: tc.workdir,
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*FileWritePlugin)
 }
 
 func TestFileWritePlugin_Name(t *testing.T) {
-	p := newFileWritePluginWithTmpDir(t)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestFileWritePlugin_Type(t *testing.T) {
-	p := newFileWritePluginWithTmpDir(t)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestFileWritePlugin_Version(t *testing.T) {
-	p := newFileWritePluginWithTmpDir(t)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileWritePlugin(tmpDir)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -85,7 +101,7 @@ func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(filepath.Join(tmpDir, "test.txt"))
+	content, err := tc.fa.Read("test.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,8 +111,8 @@ func TestFileWritePlugin_Run_SaveContent(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileWritePlugin(tmpDir)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -114,7 +130,7 @@ func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(filepath.Join(tmpDir, "test.txt"))
+	content, err := tc.fa.Read("test.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,8 +140,8 @@ func TestFileWritePlugin_Run_DefaultMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileWritePlugin(tmpDir)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -143,7 +159,7 @@ func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(filepath.Join(tmpDir, "subdir/nested/test.txt"))
+	content, err := tc.fa.Read("subdir/nested/test.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +169,8 @@ func TestFileWritePlugin_Run_CreateParentDir(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
-	p := newFileWritePluginWithTmpDir(t)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -175,8 +192,8 @@ func TestFileWritePlugin_Run_MissingDestPath(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileWritePlugin(tmpDir)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -197,8 +214,8 @@ func TestFileWritePlugin_Run_InvalidMode(t *testing.T) {
 }
 
 func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileWritePlugin(tmpDir)
+	tc := newTestContext(t)
+	p := tc.newPlugin()
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -216,7 +233,7 @@ func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	info, err := os.Stat(filepath.Join(tmpDir, "empty.txt"))
+	info, err := tc.fa.Stat("empty.txt")
 	if err != nil {
 		t.Fatal(err)
 	}

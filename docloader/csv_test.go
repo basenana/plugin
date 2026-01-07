@@ -17,25 +17,21 @@
 package docloader
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestCSV_Load(t *testing.T) {
-	tmpDir := t.TempDir()
-	csvPath := filepath.Join(tmpDir, "data.csv")
-
 	csvContent := `Name,Age,City
 Alice,30,NYC
 Bob,25,LA
 Charlie,35,Chicago`
 
-	if err := os.WriteFile(csvPath, []byte(csvContent), 0644); err != nil {
+	if err := testFileAccess.Write("data.csv", []byte(csvContent), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewCSV(csvPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("data.csv")
+	parser := NewCSV(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -50,17 +46,15 @@ Charlie,35,Chicago`
 }
 
 func TestCSV_Load_WithFilenameMetadata(t *testing.T) {
-	tmpDir := t.TempDir()
-	csvPath := filepath.Join(tmpDir, "Author_Title_2024.csv")
-
 	csvContent := `col1,col2,col3
 val1,val2,val3`
 
-	if err := os.WriteFile(csvPath, []byte(csvContent), 0644); err != nil {
+	if err := testFileAccess.Write("Author_Title_2024.csv", []byte(csvContent), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewCSV(csvPath, nil)
+	absPath, _ := testFileAccess.GetAbsPath("Author_Title_2024.csv")
+	parser := NewCSV(absPath, nil)
 	doc, err := parser.Load(nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)

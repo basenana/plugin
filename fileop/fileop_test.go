@@ -18,13 +18,11 @@ package fileop
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
-	"github.com/basenana/plugin/utils"
+	"github.com/basenana/plugin/types"
 	"go.uber.org/zap"
 )
 
@@ -32,47 +30,46 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newFileOpPlugin(workdir string) *FileOpPlugin {
-	p := &FileOpPlugin{}
-	p.logger = logger.NewPluginLogger(pluginName, "test-job")
-	p.fileRoot = utils.NewFileAccess(workdir)
-	return p
-}
-
-func newFileOpPluginWithTmpDir(t *testing.T) *FileOpPlugin {
-	return newFileOpPlugin(t.TempDir())
+func newFileOpPlugin(t *testing.T, workdir string) *FileOpPlugin {
+	return NewFileOpPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: workdir,
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*FileOpPlugin)
 }
 
 func TestFileOpPlugin_Name(t *testing.T) {
-	p := newFileOpPluginWithTmpDir(t)
+	p := newFileOpPlugin(t, t.TempDir())
 	if p.Name() != pluginName {
 		t.Errorf("expected %s, got %s", pluginName, p.Name())
 	}
 }
 
 func TestFileOpPlugin_Type(t *testing.T) {
-	p := newFileOpPluginWithTmpDir(t)
+	p := newFileOpPlugin(t, t.TempDir())
 	if string(p.Type()) != "process" {
 		t.Errorf("expected process, got %s", p.Type())
 	}
 }
 
 func TestFileOpPlugin_Version(t *testing.T) {
-	p := newFileOpPluginWithTmpDir(t)
+	p := newFileOpPlugin(t, t.TempDir())
 	if p.Version() != pluginVersion {
 		t.Errorf("expected %s, got %s", pluginVersion, p.Version())
 	}
 }
 
 func TestFileOpPlugin_Run_Copy(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileOpPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newFileOpPlugin(t, workdir)
 	ctx := context.Background()
 
-	srcFile := filepath.Join(tmpDir, "src.txt")
-	destFile := filepath.Join(tmpDir, "dest.txt")
-
-	err := os.WriteFile(srcFile, []byte("test content"), 0644)
+	// create source file using FileAccess
+	err := p.fileRoot.Write("src.txt", []byte("test content"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,8 +77,8 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 	req := &api.Request{
 		Parameter: map[string]any{
 			"action": "cp",
-			"src":    srcFile,
-			"dest":   destFile,
+			"src":    "src.txt",
+			"dest":   "dest.txt",
 		},
 	}
 
@@ -93,7 +90,7 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	content, err := os.ReadFile(destFile)
+	content, err := p.fileRoot.Read("dest.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,14 +100,11 @@ func TestFileOpPlugin_Run_Copy(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Move(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileOpPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newFileOpPlugin(t, workdir)
 	ctx := context.Background()
 
-	srcFile := filepath.Join(tmpDir, "src.txt")
-	destFile := filepath.Join(tmpDir, "dest.txt")
-
-	err := os.WriteFile(srcFile, []byte("test content"), 0644)
+	err := p.fileRoot.Write("src.txt", []byte("test content"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,8 +112,8 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 	req := &api.Request{
 		Parameter: map[string]any{
 			"action": "mv",
-			"src":    srcFile,
-			"dest":   destFile,
+			"src":    "src.txt",
+			"dest":   "dest.txt",
 		},
 	}
 
@@ -131,15 +125,15 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	if _, err = os.Stat(srcFile); !os.IsNotExist(err) {
-		t.Errorf("source file should not exist after move")
+	if p.fileRoot.Exists("src.txt") {
+		t.Error("source file should not exist after move")
 	}
 
-	if _, err = os.Stat(destFile); err != nil {
-		t.Errorf("dest file should exist: %v", err)
+	if !p.fileRoot.Exists("dest.txt") {
+		t.Error("dest file should exist after move")
 	}
 
-	content, err := os.ReadFile(destFile)
+	content, err := p.fileRoot.Read("dest.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,13 +143,11 @@ func TestFileOpPlugin_Run_Move(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_Remove(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileOpPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newFileOpPlugin(t, workdir)
 	ctx := context.Background()
 
-	srcFile := filepath.Join(tmpDir, "to_delete.txt")
-
-	err := os.WriteFile(srcFile, []byte("test content"), 0644)
+	err := p.fileRoot.Write("to_delete.txt", []byte("test content"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +155,7 @@ func TestFileOpPlugin_Run_Remove(t *testing.T) {
 	req := &api.Request{
 		Parameter: map[string]any{
 			"action": "rm",
-			"src":    srcFile,
+			"src":    "to_delete.txt",
 		},
 	}
 
@@ -175,20 +167,17 @@ func TestFileOpPlugin_Run_Remove(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	if _, err = os.Stat(srcFile); !os.IsNotExist(err) {
-		t.Errorf("file should not exist after delete")
+	if p.fileRoot.Exists("to_delete.txt") {
+		t.Error("file should not exist after delete")
 	}
 }
 
 func TestFileOpPlugin_Run_Rename(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newFileOpPlugin(tmpDir)
+	workdir := t.TempDir()
+	p := newFileOpPlugin(t, workdir)
 	ctx := context.Background()
 
-	srcFile := filepath.Join(tmpDir, "old_name.txt")
-	destFile := filepath.Join(tmpDir, "new_name.txt")
-
-	err := os.WriteFile(srcFile, []byte("test content"), 0644)
+	err := p.fileRoot.Write("old_name.txt", []byte("test content"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,8 +185,8 @@ func TestFileOpPlugin_Run_Rename(t *testing.T) {
 	req := &api.Request{
 		Parameter: map[string]any{
 			"action": "rename",
-			"src":    srcFile,
-			"dest":   destFile,
+			"src":    "old_name.txt",
+			"dest":   "new_name.txt",
 		},
 	}
 
@@ -209,17 +198,17 @@ func TestFileOpPlugin_Run_Rename(t *testing.T) {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
 
-	if _, err = os.Stat(srcFile); !os.IsNotExist(err) {
-		t.Errorf("old file should not exist after rename")
+	if p.fileRoot.Exists("old_name.txt") {
+		t.Error("old file should not exist after rename")
 	}
 
-	if _, err = os.Stat(destFile); err != nil {
-		t.Errorf("new file should exist: %v", err)
+	if !p.fileRoot.Exists("new_name.txt") {
+		t.Error("new file should exist after rename")
 	}
 }
 
 func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
-	p := newFileOpPluginWithTmpDir(t)
+	p := newFileOpPlugin(t, t.TempDir())
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -241,7 +230,7 @@ func TestFileOpPlugin_Run_MissingAction(t *testing.T) {
 }
 
 func TestFileOpPlugin_Run_UnknownAction(t *testing.T) {
-	p := newFileOpPluginWithTmpDir(t)
+	p := newFileOpPlugin(t, t.TempDir())
 	ctx := context.Background()
 
 	req := &api.Request{

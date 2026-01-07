@@ -27,25 +27,39 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
+	"github.com/basenana/plugin/types"
 	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
+var testWorkdir string
+var testFileAccess *utils.FileAccess
+
 func TestMain(m *testing.M) {
-	// Initialize logger for tests
 	logger.SetLogger(zap.NewNop().Sugar())
-	os.Exit(m.Run())
+	var err error
+	testWorkdir, err = os.MkdirTemp("", "checksum-test-*")
+	if err != nil {
+		panic(err)
+	}
+	testFileAccess = utils.NewFileAccess(testWorkdir)
+	code := m.Run()
+	os.RemoveAll(testWorkdir)
+	os.Exit(code)
 }
 
-func newChecksumPlugin(workdir string, algorithm string) *ChecksumPlugin {
-	p := &ChecksumPlugin{algorithm: algorithm}
-	p.logger = logger.NewPluginLogger(pluginName, "test-job")
-	p.fileRoot = utils.NewFileAccess(workdir)
-	return p
-}
-
-func newChecksumPluginWithTmpDir(t *testing.T, algorithm string) *ChecksumPlugin {
-	return newChecksumPlugin(t.TempDir(), algorithm)
+func newChecksumPlugin(t *testing.T, algorithm string) *ChecksumPlugin {
+	return NewChecksumPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: testWorkdir,
+		PluginName:  "",
+		Version:     "",
+		Params: map[string]string{
+			"algorithm": algorithm,
+		},
+	}).(*ChecksumPlugin)
 }
 
 func TestChecksumPlugin_Name(t *testing.T) {
@@ -70,16 +84,16 @@ func TestChecksumPlugin_Version(t *testing.T) {
 }
 
 func TestChecksumPlugin_MD5(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	content := "hello world"
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte(content), 0644)
+	err := testFileAccess.Write("test.txt", []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Calculate expected MD5
 	hash := md5.Sum([]byte(content))
 	expected := hex.EncodeToString(hash[:16])
 
-	p := newChecksumPlugin(tmpDir, "md5")
+	p := newChecksumPlugin(t, "md5")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -106,17 +120,17 @@ func TestChecksumPlugin_MD5(t *testing.T) {
 }
 
 func TestChecksumPlugin_SHA256(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	content := "hello world"
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte(content), 0644)
+	err := testFileAccess.Write("test.txt", []byte(content), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Calculate expected SHA256 using sha256.New().Sum(nil)
 	h := sha256.New()
 	h.Write([]byte(content))
 	expected := hex.EncodeToString(h.Sum(nil))
 
-	p := newChecksumPlugin(tmpDir, "sha256")
+	p := newChecksumPlugin(t, "sha256")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -144,7 +158,7 @@ func TestChecksumPlugin_SHA256(t *testing.T) {
 }
 
 func TestChecksumPlugin_MissingFilePath(t *testing.T) {
-	p := newChecksumPluginWithTmpDir(t, "md5")
+	p := newChecksumPlugin(t, "md5")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -158,14 +172,13 @@ func TestChecksumPlugin_MissingFilePath(t *testing.T) {
 	if resp.IsSucceed {
 		t.Error("expected failure, got success")
 	}
-	if resp.Message == "" || resp.Message != "file_path is required" {
+	if resp.Message != "file_path is required" {
 		t.Errorf("expected 'file_path is required', got '%s'", resp.Message)
 	}
 }
 
 func TestChecksumPlugin_FileNotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	p := newChecksumPlugin(tmpDir, "md5")
+	p := newChecksumPlugin(t, "md5")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -184,11 +197,12 @@ func TestChecksumPlugin_FileNotFound(t *testing.T) {
 }
 
 func TestChecksumPlugin_InvalidAlgorithm(t *testing.T) {
-	tmpDir := t.TempDir()
+	err := testFileAccess.Write("test.txt", []byte("content"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("content"), 0644)
-
-	p := newChecksumPlugin(tmpDir, "sha512")
+	p := newChecksumPlugin(t, "sha512")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -208,11 +222,12 @@ func TestChecksumPlugin_InvalidAlgorithm(t *testing.T) {
 }
 
 func TestChecksumPlugin_EmptyFile(t *testing.T) {
-	tmpDir := t.TempDir()
+	err := testFileAccess.Write("empty.txt", []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	os.WriteFile(filepath.Join(tmpDir, "empty.txt"), []byte(""), 0644)
-
-	p := newChecksumPlugin(tmpDir, "md5")
+	p := newChecksumPlugin(t, "md5")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -233,23 +248,22 @@ func TestChecksumPlugin_EmptyFile(t *testing.T) {
 	if !ok {
 		t.Fatal("expected hash in results")
 	}
-	// MD5 of empty string
 	if result != "d41d8cd98f00b204e9800998ecf8427e" {
 		t.Errorf("expected d41d8cd98f00b204e9800998ecf8427e, got %s", result)
 	}
 }
 
 func TestChecksumPlugin_LargeFile(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a 1MB file
 	content := make([]byte, 1024*1024)
 	for i := range content {
 		content[i] = byte(i % 256)
 	}
-	os.WriteFile(filepath.Join(tmpDir, "large.txt"), content, 0644)
+	err := testFileAccess.Write("large.txt", content, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	p := newChecksumPlugin(tmpDir, "md5")
+	p := newChecksumPlugin(t, "md5")
 	ctx := context.Background()
 
 	req := &api.Request{
@@ -275,14 +289,33 @@ func TestChecksumPlugin_LargeFile(t *testing.T) {
 	}
 }
 
-func TestComputeHash_MD5(t *testing.T) {
-	// computeHash is now a method on ChecksumPlugin, tested via TestChecksumPlugin_Run
-}
+func TestChecksumPlugin_WorkdirIsolation(t *testing.T) {
+	// ensure file access is isolated to workdir
+	testFileAccess.Write("test.txt", []byte("content"), 0644)
 
-func TestComputeHash_SHA256(t *testing.T) {
-	// computeHash is now a method on ChecksumPlugin, tested via TestChecksumPlugin_Run
-}
+	// create a file outside workdir
+	outsidePath := filepath.Join(filepath.Dir(testWorkdir), "outside.txt")
+	err := os.WriteFile(outsidePath, []byte("outside"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outsidePath)
 
-func TestComputeHash_InvalidAlgorithm(t *testing.T) {
-	// computeHash is now a method on ChecksumPlugin, tested via TestChecksumPlugin_Run
+	p := newChecksumPlugin(t, "md5")
+	ctx := context.Background()
+
+	// try to access file outside workdir - should fail
+	req := &api.Request{
+		Parameter: map[string]any{
+			"file_path": "../outside.txt",
+		},
+	}
+
+	resp, err := p.Run(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.IsSucceed {
+		t.Error("expected failure when accessing file outside workdir")
+	}
 }

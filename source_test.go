@@ -25,7 +25,7 @@ import (
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
-	"github.com/basenana/plugin/utils"
+	"github.com/basenana/plugin/types"
 	"go.uber.org/zap"
 )
 
@@ -34,40 +34,41 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newThreeBodyPlugin(workdir string) *ThreeBodyPlugin {
-	p := &ThreeBodyPlugin{}
-	p.logger = logger.NewPluginLogger(the3BodyPluginName, "test-job")
-	p.fileRoot = utils.NewFileAccess(workdir)
-	return p
-}
-
-func newThreeBodyPluginWithTmpDir(t *testing.T) *ThreeBodyPlugin {
-	return newThreeBodyPlugin(t.TempDir())
+func newThreeBodyPlugin(t *testing.T) *ThreeBodyPlugin {
+	return NewThreeBodyPlugin(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: t.TempDir(),
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*ThreeBodyPlugin)
 }
 
 func TestThreeBodyPlugin_Name(t *testing.T) {
-	p := newThreeBodyPluginWithTmpDir(t)
+	p := newThreeBodyPlugin(t)
 	if p.Name() != the3BodyPluginName {
 		t.Errorf("expected %s, got %s", the3BodyPluginName, p.Name())
 	}
 }
 
 func TestThreeBodyPlugin_Type(t *testing.T) {
-	p := newThreeBodyPluginWithTmpDir(t)
+	p := newThreeBodyPlugin(t)
 	if string(p.Type()) != "source" {
 		t.Errorf("expected source, got %s", p.Type())
 	}
 }
 
 func TestThreeBodyPlugin_Version(t *testing.T) {
-	p := newThreeBodyPluginWithTmpDir(t)
+	p := newThreeBodyPlugin(t)
 	if p.Version() != the3BodyPluginVersion {
 		t.Errorf("expected %s, got %s", the3BodyPluginVersion, p.Version())
 	}
 }
 
 func TestThreeBodyPlugin_SourceInfo(t *testing.T) {
-	p := newThreeBodyPluginWithTmpDir(t)
+	p := newThreeBodyPlugin(t)
 	info, err := p.SourceInfo()
 	if err != nil {
 		t.Fatal(err)
@@ -78,13 +79,7 @@ func TestThreeBodyPlugin_SourceInfo(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_Run(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "threebody_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	p := newThreeBodyPlugin(tmpDir)
+	p := newThreeBodyPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{}
@@ -102,14 +97,8 @@ func TestThreeBodyPlugin_Run(t *testing.T) {
 		t.Fatal("expected file_path in response")
 	}
 
-	// Verify file exists
-	fullPath := filepath.Join(tmpDir, filePath)
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		t.Errorf("expected file to exist at %s", fullPath)
-	}
-
 	// Verify file content
-	data, err := os.ReadFile(fullPath)
+	data, err := os.ReadFile(filepath.Join(p.fileRoot.Workdir(), filePath))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +121,10 @@ func TestThreeBodyPlugin_Run(t *testing.T) {
 func TestThreeBodyPlugin_MissingWorkingPath(t *testing.T) {
 	// When workdir is empty, FileAccess defaults to "."
 	// So this test verifies the plugin handles empty workdir gracefully
-	p := newThreeBodyPlugin("")
+	p := NewThreeBodyPlugin(types.PluginCall{
+		JobID:       "test-job",
+		WorkingPath: "",
+	}).(*ThreeBodyPlugin)
 	ctx := context.Background()
 
 	req := &api.Request{}
@@ -145,13 +137,7 @@ func TestThreeBodyPlugin_MissingWorkingPath(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_Run_Multiple(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "threebody_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	p := newThreeBodyPlugin(tmpDir)
+	p := newThreeBodyPlugin(t)
 	ctx := context.Background()
 
 	// Run multiple times
@@ -172,7 +158,7 @@ func TestThreeBodyPlugin_Run_Multiple(t *testing.T) {
 		}
 
 		// Verify file exists
-		fullPath := filepath.Join(tmpDir, filePath)
+		fullPath := filepath.Join(p.fileRoot.Workdir(), filePath)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			t.Errorf("run %d: expected file to exist at %s", i, fullPath)
 		}
@@ -180,13 +166,7 @@ func TestThreeBodyPlugin_Run_Multiple(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_FileNaming(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "threebody_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	p := newThreeBodyPlugin(tmpDir)
+	p := newThreeBodyPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{}
@@ -214,13 +194,7 @@ func TestThreeBodyPlugin_FileNaming(t *testing.T) {
 }
 
 func TestThreeBodyPlugin_FileContent(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "threebody_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	p := newThreeBodyPlugin(tmpDir)
+	p := newThreeBodyPlugin(t)
 	ctx := context.Background()
 
 	req := &api.Request{}
@@ -234,7 +208,7 @@ func TestThreeBodyPlugin_FileContent(t *testing.T) {
 	}
 
 	filePath := resp.Results["file_path"].(string)
-	fullPath := filepath.Join(tmpDir, filePath)
+	fullPath := filepath.Join(p.fileRoot.Workdir(), filePath)
 
 	data, err := os.ReadFile(fullPath)
 	if err != nil {

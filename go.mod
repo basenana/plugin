@@ -3,6 +3,7 @@ module github.com/basenana/plugin
 go 1.25
 
 require (
+	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/hyponet/webpage-packer v1.1.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
@@ -12,6 +13,7 @@ require (
 
 require (
 	code.dny.dev/ssrf v0.2.0 // indirect
+	github.com/JohannesKaufmann/dom v0.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect

@@ -14,7 +14,7 @@ type FileAccess struct {
 
 func NewFileAccess(workdir string) *FileAccess {
 	if workdir == "" {
-		workdir = "."
+		workdir = os.TempDir()
 	}
 	return &FileAccess{
 		workdir: filepath.Clean(workdir),
@@ -62,6 +62,11 @@ func (fa *FileAccess) GetAbsPath(path string) (string, error) {
 	// Clean the path
 	path = filepath.Clean(path)
 
+	// Check for path traversal
+	if strings.Contains(path, "..") {
+		return "", fmt.Errorf("path traversal is not allowed: %s", path)
+	}
+
 	// If it's an absolute path, check if it's within workdir
 	if filepath.IsAbs(path) {
 		// Check if the absolute path is within workdir
@@ -69,11 +74,6 @@ func (fa *FileAccess) GetAbsPath(path string) (string, error) {
 			return "", fmt.Errorf("path is outside workdir: %s", path)
 		}
 		return path, nil
-	}
-
-	// Check for path traversal
-	if strings.Contains(path, "..") {
-		return "", fmt.Errorf("path traversal is not allowed: %s", path)
 	}
 
 	return filepath.Join(fa.workdir, path), nil

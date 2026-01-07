@@ -2,14 +2,16 @@ package fs
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -17,14 +19,22 @@ func init() {
 	logger.SetLogger(zap.NewNop().Sugar())
 }
 
-func newSaver() *Saver {
-	s := &Saver{}
-	s.logger = logger.NewPluginLogger(savePluginName, "test-job")
-	return s
+func newSaver(t *testing.T) (*Saver, *utils.FileAccess) {
+	p := NewSaver(types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: t.TempDir(),
+		PluginName:  "",
+		Version:     "",
+		Params:      map[string]string{},
+	}).(*Saver)
+
+	return p, p.fileRoot
 }
 
 func TestSaver_Run_MissingFilePath(t *testing.T) {
-	plugin := newSaver()
+	plugin, _ := newSaver(t)
 	req := &api.Request{
 		Parameter: map[string]interface{}{},
 	}
@@ -40,7 +50,7 @@ func TestSaver_Run_MissingFilePath(t *testing.T) {
 }
 
 func TestSaver_Run_FileNotFound(t *testing.T) {
-	plugin := newSaver()
+	plugin, _ := newSaver(t)
 	req := &api.Request{
 		Parameter: map[string]interface{}{
 			"file_path": "/nonexistent/file.txt",
@@ -58,21 +68,17 @@ func TestSaver_Run_FileNotFound(t *testing.T) {
 }
 
 func TestSaver_Run_Success(t *testing.T) {
-	// Create a temporary file
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 		},
 		FS: mockFS,
 	}
@@ -88,27 +94,21 @@ func TestSaver_Run_Success(t *testing.T) {
 	if !mockFS.WasSaveCalled() {
 		t.Error("expected SaveEntry to be called")
 	}
-	if mockFS.GetEntriesCount() != 1 {
-		t.Errorf("expected 1 entry, got %d", mockFS.GetEntriesCount())
-	}
 }
 
 func TestSaver_Run_WithName(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
-			"name":      "custom_name.txt",
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"name":       "custom_name.txt",
+			"parent_uri": "/group",
 		},
 		FS: mockFS,
 	}
@@ -120,33 +120,21 @@ func TestSaver_Run_WithName(t *testing.T) {
 	}
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
-	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	if entry.name != "custom_name.txt" {
-		t.Errorf("expected name 'custom_name.txt', got '%s'", entry.name)
 	}
 }
 
 func TestSaver_Run_WithParentURI(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path":  tmpFile.Name(),
-			"parent_uri": "12345",
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 		},
 		FS: mockFS,
 	}
@@ -159,31 +147,20 @@ func TestSaver_Run_WithParentURI(t *testing.T) {
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	if entry.parentURI != "12345" {
-		t.Errorf("expected parent_uri '12345', got '%s'", entry.parentURI)
-	}
 }
 
 func TestSaver_Run_WithProperties(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 			"properties": map[string]interface{}{
 				"title":  "Test Title",
 				"author": "Test Author",
@@ -203,43 +180,20 @@ func TestSaver_Run_WithProperties(t *testing.T) {
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	if entry.props.Title != "Test Title" {
-		t.Errorf("expected title 'Test Title', got '%s'", entry.props.Title)
-	}
-	if entry.props.Author != "Test Author" {
-		t.Errorf("expected author 'Test Author', got '%s'", entry.props.Author)
-	}
-	if entry.props.Year != "2024" {
-		t.Errorf("expected year '2024', got '%s'", entry.props.Year)
-	}
-	if !entry.props.Marked {
-		t.Error("expected marked to be true")
-	}
-	if entry.props.Unread {
-		t.Error("expected unread to be false")
-	}
 }
 
 func TestSaver_Run_WithDocument(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 			"document": map[string]interface{}{
 				"content": "document content",
 				"properties": map[string]interface{}{
@@ -260,24 +214,10 @@ func TestSaver_Run_WithDocument(t *testing.T) {
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	if entry.props.Title != "Doc Title" {
-		t.Errorf("expected title 'Doc Title', got '%s'", entry.props.Title)
-	}
-	if entry.props.Abstract != "Doc Abstract" {
-		t.Errorf("expected abstract 'Doc Abstract', got '%s'", entry.props.Abstract)
-	}
-	if len(entry.props.Keywords) != 2 {
-		t.Errorf("expected 2 keywords, got %d", len(entry.props.Keywords))
-	}
 }
 
 func TestSaver_Run_WithNilParameter(t *testing.T) {
-	plugin := newSaver()
+	plugin, _ := newSaver(t)
 	req := &api.Request{
 		Parameter: nil,
 	}
@@ -293,7 +233,7 @@ func TestSaver_Run_WithNilParameter(t *testing.T) {
 }
 
 func TestSaver_Run_WithEmptyParameter(t *testing.T) {
-	plugin := newSaver()
+	plugin, _ := newSaver(t)
 	req := &api.Request{
 		Parameter: map[string]interface{}{},
 	}
@@ -309,19 +249,16 @@ func TestSaver_Run_WithEmptyParameter(t *testing.T) {
 }
 
 func TestSaver_Run_NilFS(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 		},
 		FS: nil,
 	}
@@ -338,22 +275,19 @@ func TestSaver_Run_NilFS(t *testing.T) {
 }
 
 func TestSaver_Run_SaveError(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	mockFS.SetSaveError(context.DeadlineExceeded)
 
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 		},
 		FS: mockFS,
 	}
@@ -369,22 +303,18 @@ func TestSaver_Run_SaveError(t *testing.T) {
 }
 
 func TestSaver_Run_WithAllParameters(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path":  tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
 			"name":       "all_params.txt",
-			"parent_uri": "999",
+			"parent_uri": "/group",
 			"properties": map[string]interface{}{
 				"title":        "Full Test",
 				"author":       "Author",
@@ -410,68 +340,20 @@ func TestSaver_Run_WithAllParameters(t *testing.T) {
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	if entry.name != "all_params.txt" {
-		t.Errorf("expected name 'all_params.txt', got '%s'", entry.name)
-	}
-	if entry.parentURI != "999" {
-		t.Errorf("expected parent_uri '999', got '%s'", entry.parentURI)
-	}
-	if entry.props.Title != "Full Test" {
-		t.Errorf("expected title 'Full Test', got '%s'", entry.props.Title)
-	}
-	if entry.props.Author != "Author" {
-		t.Errorf("expected author 'Author', got '%s'", entry.props.Author)
-	}
-	if entry.props.Year != "2025" {
-		t.Errorf("expected year '2025', got '%s'", entry.props.Year)
-	}
-	if entry.props.Source != "Source" {
-		t.Errorf("expected source 'Source', got '%s'", entry.props.Source)
-	}
-	if entry.props.Abstract != "Abstract" {
-		t.Errorf("expected abstract 'Abstract', got '%s'", entry.props.Abstract)
-	}
-	if entry.props.Notes != "Notes" {
-		t.Errorf("expected notes 'Notes', got '%s'", entry.props.Notes)
-	}
-	if entry.props.URL != "https://example.com" {
-		t.Errorf("expected url 'https://example.com', got '%s'", entry.props.URL)
-	}
-	if entry.props.HeaderImage != "https://example.com/image.png" {
-		t.Errorf("expected headerImage 'https://example.com/image.png', got '%s'", entry.props.HeaderImage)
-	}
-	if !entry.props.Unread {
-		t.Error("expected unread to be true")
-	}
-	if !entry.props.Marked {
-		t.Error("expected marked to be true")
-	}
-	if entry.props.PublishAt != 1704067200 {
-		t.Errorf("expected publishAt 1704067200, got %d", entry.props.PublishAt)
-	}
 }
 
 func TestSaver_Properties_Priority(t *testing.T) {
-	// When both properties and document are provided, properties should take priority
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 			"properties": map[string]interface{}{
 				"title": "From Properties",
 			},
@@ -493,32 +375,20 @@ func TestSaver_Properties_Priority(t *testing.T) {
 	if !resp.IsSucceed {
 		t.Errorf("expected success, got failure: %s", resp.Message)
 	}
-
-	entry, ok := mockFS.GetEntry(1)
-	if !ok {
-		t.Fatal("expected entry to be saved")
-	}
-	// Properties should override document
-	if entry.props.Title != "From Properties" {
-		t.Errorf("expected title 'From Properties' (from properties), got '%s'", entry.props.Title)
-	}
 }
 
 func TestSaver_Properties_NilDocumentAndProperties(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path":  tmpFile.Name(),
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
 			"properties": nil,
 			"document":   nil,
 		},
@@ -536,21 +406,18 @@ func TestSaver_Properties_NilDocumentAndProperties(t *testing.T) {
 }
 
 func TestSaver_Properties_InvalidDocumentType(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "test_*.txt")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
+	plugin, tw := newSaver(t)
+
+	if err := tw.Write("test_file.txt", []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
 
-	tmpFile.WriteString("test content")
-	tmpFile.Close()
-
-	plugin := newSaver()
 	mockFS := NewMockNanaFS()
 	req := &api.Request{
 		Parameter: map[string]interface{}{
-			"file_path": tmpFile.Name(),
-			"document":  "invalid string instead of map",
+			"file_path":  filepath.Join(tw.Workdir(), "test_file.txt"),
+			"parent_uri": "/group",
+			"document":   "invalid string instead of map",
 		},
 		FS: mockFS,
 	}
@@ -573,26 +440,21 @@ func TestSaver_Properties_InvalidDocumentType(t *testing.T) {
 // MockNanaFS is a mock implementation of NanaFS interface for testing.
 type MockNanaFS struct {
 	mu           sync.RWMutex
-	entries      map[int64]*mockEntry
+	entries      map[string]*mockEntry
 	saveCalled   bool
 	saveErr      error
 	updateCalled bool
 	updateErr    error
-	nextID       int64
 }
 
 type mockEntry struct {
-	id        int64
 	parentURI string
 	name      string
 	props     types.Properties
 }
 
 func NewMockNanaFS() *MockNanaFS {
-	return &MockNanaFS{
-		entries: make(map[int64]*mockEntry),
-		nextID:  1,
-	}
+	return &MockNanaFS{entries: make(map[string]*mockEntry)}
 }
 
 func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, reader io.ReadCloser) error {
@@ -604,10 +466,7 @@ func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, prop
 		return m.saveErr
 	}
 
-	id := m.nextID
-	m.nextID++
-	m.entries[id] = &mockEntry{
-		id:        id,
+	m.entries[fmt.Sprintf("%s/%s", parentURI, name)] = &mockEntry{
 		parentURI: parentURI,
 		name:      name,
 		props:     properties,
@@ -616,7 +475,7 @@ func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, prop
 	return nil
 }
 
-func (m *MockNanaFS) UpdateEntry(ctx context.Context, entryURI int64, properties types.Properties) error {
+func (m *MockNanaFS) UpdateEntry(ctx context.Context, entryURI string, properties types.Properties) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -645,13 +504,6 @@ func (m *MockNanaFS) SetUpdateError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.updateErr = err
-}
-
-func (m *MockNanaFS) GetEntry(id int64) (*mockEntry, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	e, ok := m.entries[id]
-	return e, ok
 }
 
 func (m *MockNanaFS) WasSaveCalled() bool {

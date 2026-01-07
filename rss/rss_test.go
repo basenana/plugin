@@ -23,51 +23,77 @@ import (
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
+
+var testWorkDir string
 
 func TestMain(m *testing.M) {
 	// Initialize logger for tests
 	logger.SetLogger(zap.NewNop().Sugar())
+	testWorkDir = os.TempDir() + "/rss_test"
+	if err := os.MkdirAll(testWorkDir, 0755); err != nil {
+		os.Exit(1)
+	}
+	defer os.RemoveAll(testWorkDir)
+
 	os.Exit(m.Run())
 }
 
+func newRssPlugin(t *testing.T) *RssSourcePlugin {
+	workDir := testWorkDir
+	if t != nil {
+		workDir = t.TempDir()
+	}
+	return newRssPluginWithWorkdir(workDir, map[string]string{})
+}
+
+func newRssPluginWithWorkdir(workDir string, params map[string]string) *RssSourcePlugin {
+	pc := types.PluginCall{
+		JobID:       "test-job",
+		Workflow:    "test-workflow",
+		Namespace:   "test-namespace",
+		WorkingPath: workDir,
+		PluginName:  "",
+		Version:     "",
+		Params:      params,
+	}
+	p := NewRssPlugin(pc).(*RssSourcePlugin)
+	p.fileRoot = utils.NewFileAccess(workDir)
+	return p
+}
+
 func TestRssPlugin_Name(t *testing.T) {
-	p := &RssSourcePlugin{}
+	p := newRssPlugin(t)
 	if p.Name() != RssSourcePluginName {
 		t.Errorf("expected %s, got %s", RssSourcePluginName, p.Name())
 	}
 }
 
 func TestRssPlugin_Type(t *testing.T) {
-	p := &RssSourcePlugin{}
+	p := newRssPlugin(t)
 	if string(p.Type()) != "source" {
 		t.Errorf("expected source, got %s", p.Type())
 	}
 }
 
 func TestRssPlugin_Version(t *testing.T) {
-	p := &RssSourcePlugin{}
+	p := newRssPlugin(t)
 	if p.Version() != RssSourcePluginVersion {
 		t.Errorf("expected %s, got %s", RssSourcePluginVersion, p.Version())
 	}
 }
 
 func TestRssPlugin_MissingFeedURL(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "rss_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	p := NewRssPlugin(types.PluginCall{WorkingPath: tmpDir}).(*RssSourcePlugin)
+	p := newRssPlugin(t)
 
 	req := &api.Request{
 		Parameter: map[string]any{},
 	}
 
 	// The rssSources method returns an error for missing feed URL
-	_, err = p.rssSources(req)
+	_, err := p.rssSources(req)
 	if err == nil {
 		t.Error("expected error for missing feed URL")
 	}
@@ -77,17 +103,11 @@ func TestRssPlugin_MissingFeedURL(t *testing.T) {
 }
 
 func TestRssPlugin_InvalidFeedURL(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "rss_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
 	// "not-a-valid-url" is actually parsed as valid by url.Parse
 	// It doesn't have a scheme but is structurally valid
 	// The actual error would come from trying to fetch it
 	// So we test that rssSources doesn't panic
-	p := NewRssPlugin(types.PluginCall{WorkingPath: tmpDir}).(*RssSourcePlugin)
+	p := newRssPlugin(t)
 
 	req := &api.Request{
 		Parameter: map[string]any{
@@ -152,9 +172,7 @@ func TestAbsoluteURL(t *testing.T) {
 }
 
 func TestNewRssPlugin_DefaultFileType(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{})
 
 	if p.fileType != archiveFileTypeWebArchive {
 		t.Errorf("expected default file type to be %s, got %s", archiveFileTypeWebArchive, p.fileType)
@@ -162,11 +180,9 @@ func TestNewRssPlugin_DefaultFileType(t *testing.T) {
 }
 
 func TestNewRssPlugin_CustomFileType(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{
-			rssParameterFileType: "html",
-		},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{
+		rssParameterFileType: "html",
+	})
 
 	if p.fileType != "html" {
 		t.Errorf("expected file type to be html, got %s", p.fileType)
@@ -174,9 +190,7 @@ func TestNewRssPlugin_CustomFileType(t *testing.T) {
 }
 
 func TestNewRssPlugin_DefaultTimeout(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{})
 
 	if p.timeout != 120 {
 		t.Errorf("expected default timeout to be 120, got %d", p.timeout)
@@ -184,11 +198,9 @@ func TestNewRssPlugin_DefaultTimeout(t *testing.T) {
 }
 
 func TestNewRssPlugin_CustomTimeout(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{
-			rssParameterTimeout: "60",
-		},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{
+		rssParameterTimeout: "60",
+	})
 
 	if p.timeout != 60 {
 		t.Errorf("expected timeout to be 60, got %d", p.timeout)
@@ -196,9 +208,7 @@ func TestNewRssPlugin_CustomTimeout(t *testing.T) {
 }
 
 func TestNewRssPlugin_DefaultClutterFree(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{})
 
 	if p.clutterFree != true {
 		t.Errorf("expected default clutterFree to be true, got %v", p.clutterFree)
@@ -218,11 +228,9 @@ func TestNewRssPlugin_CustomClutterFree(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		p := NewRssPlugin(types.PluginCall{
-			Params: map[string]string{
-				rssParameterClutterFree: tt.value,
-			},
-		}).(*RssSourcePlugin)
+		p := newRssPluginWithWorkdir(testWorkDir, map[string]string{
+			rssParameterClutterFree: tt.value,
+		})
 
 		if p.clutterFree != tt.expected {
 			t.Errorf("clutterFree = %s: expected %v, got %v", tt.value, tt.expected, p.clutterFree)
@@ -231,12 +239,10 @@ func TestNewRssPlugin_CustomClutterFree(t *testing.T) {
 }
 
 func TestNewRssPlugin_Headers(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{
-			"header_Authorization": "Bearer token",
-			"header_User-Agent":    "TestAgent",
-		},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{
+		"header_Authorization": "Bearer token",
+		"header_User-Agent":    "TestAgent",
+	})
 
 	if len(p.headers) != 2 {
 		t.Errorf("expected 2 headers, got %d", len(p.headers))
@@ -250,11 +256,9 @@ func TestNewRssPlugin_Headers(t *testing.T) {
 }
 
 func TestNewRssPlugin_UppercaseHeaders(t *testing.T) {
-	p := NewRssPlugin(types.PluginCall{
-		Params: map[string]string{
-			"HEADER_Authorization": "Bearer token",
-		},
-	}).(*RssSourcePlugin)
+	p := newRssPluginWithWorkdir(testWorkDir, map[string]string{
+		"HEADER_Authorization": "Bearer token",
+	})
 
 	if len(p.headers) != 1 {
 		t.Errorf("expected 1 header, got %d", len(p.headers))

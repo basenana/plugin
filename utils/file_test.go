@@ -31,8 +31,8 @@ func TestNewFileAccess(t *testing.T) {
 
 func TestNewFileAccess_EmptyWorkdir(t *testing.T) {
 	fa := NewFileAccess("")
-	if fa.workdir != "." {
-		t.Errorf("expected workdir '.', got %s", fa.workdir)
+	if fa.workdir == "" {
+		t.Errorf("expected workdir not empty got %s", fa.workdir)
 	}
 }
 

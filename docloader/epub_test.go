@@ -19,15 +19,13 @@ package docloader
 import (
 	"archive/zip"
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
 func createTestEPUB(t *testing.T, path string, title, author, content string) {
 	t.Helper()
 
-	w, err := os.Create(path)
+	w, err := testFileAccess.Create(path, 0644)
 	if err != nil {
 		t.Fatalf("Failed to create EPUB: %v", err)
 	}
@@ -88,12 +86,10 @@ func addZipFile(zipWriter *zip.Writer, name, content string) error {
 }
 
 func TestEPUB_Load(t *testing.T) {
-	tmpDir := t.TempDir()
-	epubPath := filepath.Join(tmpDir, "test.epub")
+	loader := newDocLoader(t)
 
-	createTestEPUB(t, epubPath, "Test Book", "Test Author", "Chapter content here")
+	createTestEPUB(t, "test.epub", "Test Book", "Test Author", "Chapter content here")
 
-	loader := newDocLoader(tmpDir)
 	doc, err := loader.loadDocument(context.Background(), "test.epub")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -110,14 +106,11 @@ func TestEPUB_Load(t *testing.T) {
 }
 
 func TestEPUB_Load_InvalidFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	invalidPath := filepath.Join(tmpDir, "invalid.epub")
-
-	if err := os.WriteFile(invalidPath, []byte("not a valid epub"), 0644); err != nil {
+	if err := testFileAccess.Write("invalid.epub", []byte("not a valid epub"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	parser := NewEPUB(invalidPath, nil)
+	parser := NewEPUB("invalid.epub", nil)
 	_, err := parser.Load(nil)
 	if err == nil {
 		t.Error("Load should fail for invalid EPUB")
