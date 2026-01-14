@@ -21,9 +21,9 @@ var ResearchPluginSpec = types.PluginSpec{
 	Version: researchPluginVersion,
 	Type:    types.TypeProcess,
 	RequiredConfig: append(LLMRequiredConfig(),
-		"websearch_type", // WebSearch type: pse (Google Programmable Search Engine)
-		"pse_engine_id",  // Google PSE Engine ID (required when websearch_type=pse)
-		"pse_api_key",    // Google PSE API Key (required when websearch_type=pse)
+		"friday_websearch_type", // WebSearch type: pse (Google Programmable Search Engine)
+		"friday_pse_engine_id",  // Google PSE Engine ID (required when websearch_type=pse)
+		"friday_pse_api_key",    // Google PSE API Key (required when websearch_type=pse)
 	),
 }
 
@@ -47,7 +47,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 
 	systemPrompt := api.GetStringParameter("system_prompt", request, "")
 
-	websearchType := p.config["websearch_type"]
+	websearchType := p.config["friday_websearch_type"]
 	p.logger.Infow("research plugin started", "message_len", len(message), "has_system_prompt", systemPrompt != "", "websearch_type", websearchType)
 
 	llm, err := NewLLMClient(p.config)
@@ -59,10 +59,10 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 	rsTools := FileAccessTools(p.workingPath)
 
 	// Check for websearch_type config and add corresponding tools
-	switch p.config["websearch_type"] {
+	switch p.config["friday_websearch_type"] {
 	case "pse":
-		engineID := p.config["pse_engine_id"]
-		apiKey := p.config["pse_api_key"]
+		engineID := p.config["friday_pse_engine_id"]
+		apiKey := p.config["friday_pse_api_key"]
 		if engineID != "" && apiKey != "" {
 			rsTools = append(rsTools, NewPSEWebSearchTool(engineID, apiKey)...)
 			p.logger.Infow("PSE web search tool added", "engine_id", engineID)

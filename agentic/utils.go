@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	ConfigHost   = "llm_host"
-	ConfigAPIKey = "llm_api_key"
-	ConfigModel  = "llm_model"
+	ConfigHost   = "friday_llm_host"
+	ConfigAPIKey = "friday_llm_api_key"
+	ConfigModel  = "friday_llm_model"
 )
 
 func NewLLMClient(config map[string]string) (openai.Client, error) {

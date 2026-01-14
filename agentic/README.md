@@ -29,17 +29,17 @@ Summarization agent for condensing content.
 
 | Config Key | Required | Description |
 |------------|----------|-------------|
-| `llm_host` | Yes | LLM API endpoint (e.g., `https://api.openai.com/v1`) |
-| `llm_api_key` | Yes | LLM API key |
-| `llm_model` | Yes | Model name (e.g., `gpt-4o`, `gpt-4o-mini`) |
+| `friday_llm_host` | Yes | LLM API endpoint (e.g., `https://api.openai.com/v1`) |
+| `friday_llm_api_key` | Yes | LLM API key |
+| `friday_llm_model` | Yes | Model name (e.g., `gpt-4o`, `gpt-4o-mini`) |
 
 ### Research Plugin Additional Config
 
 | Config Key | Required | Description |
 |------------|----------|-------------|
-| `websearch_type` | No | Web search type (e.g., `pse` for Google Programmable Search Engine) |
-| `pse_engine_id` | Conditional | Google PSE Engine ID (required when websearch_type=pse) |
-| `pse_api_key` | Conditional | Google PSE API Key (required when websearch_type=pse) |
+| `friday_websearch_type` | No | Web search type (e.g., `pse` for Google Programmable Search Engine) |
+| `friday_pse_engine_id` | Conditional | Google PSE Engine ID (required when websearch_type=pse) |
+| `friday_pse_api_key` | Conditional | Google PSE API Key (required when websearch_type=pse) |
 
 ## Parameters
 
@@ -136,9 +136,9 @@ Summarization agent for condensing content.
 # React Agent with file access
 - name: react
   config:
-    llm_host: "https://api.openai.com/v1"
-    llm_api_key: "your-api-key"
-    llm_model: "gpt-4o"
+    friday_llm_host: "https://api.openai.com/v1"
+    friday_llm_api_key: "your-api-key"
+    friday_llm_model: "gpt-4o"
   parameters:
     message: "Read the README.md file and summarize its contents"
     system_prompt: "You are a helpful assistant with file access"
@@ -146,21 +146,21 @@ Summarization agent for condensing content.
 # Research Agent with web search
 - name: research
   config:
-    llm_host: "https://api.openai.com/v1"
-    llm_api_key: "your-api-key"
-    llm_model: "gpt-4o"
-    websearch_type: "pse"
-    pse_engine_id: "your-engine-id"
-    pse_api_key: "your-api-key"
+    friday_llm_host: "https://api.openai.com/v1"
+    friday_llm_api_key: "your-api-key"
+    friday_llm_model: "gpt-4o"
+    friday_websearch_type: "pse"
+    friday_pse_engine_id: "your-engine-id"
+    friday_pse_api_key: "your-api-key"
   parameters:
     message: "Research the latest developments in quantum computing"
 
 # Summary Agent
 - name: summary
   config:
-    llm_host: "https://api.openai.com/v1"
-    llm_api_key: "your-api-key"
-    llm_model: "gpt-4o-mini"
+    friday_llm_host: "https://api.openai.com/v1"
+    friday_llm_api_key: "your-api-key"
+    friday_llm_model: "gpt-4o-mini"
   parameters:
     message: "Summarize the following article: ..."
 ```
