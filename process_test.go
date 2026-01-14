@@ -119,8 +119,8 @@ func TestDelayPlugin_UntilRFC3339(t *testing.T) {
 	p := newDelayPlugin(t)
 	ctx := context.Background()
 
-	// Set until to 500ms from now to ensure enough time for execution
-	until := time.Now().Add(500 * time.Millisecond).Format(time.RFC3339)
+	// RFC3339 format has second precision, so use 2 seconds to ensure enough time
+	until := time.Now().Add(2 * time.Second).Format(time.RFC3339)
 
 	req := &api.Request{
 		Parameter: map[string]any{
