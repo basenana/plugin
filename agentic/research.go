@@ -6,7 +6,9 @@ import (
 	"github.com/basenana/friday/core/agents/research"
 	fridayapi "github.com/basenana/friday/core/api"
 	"github.com/basenana/plugin/api"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"go.uber.org/zap"
 )
 
 const (
@@ -26,6 +28,7 @@ var ResearchPluginSpec = types.PluginSpec{
 }
 
 type ResearchPlugin struct {
+	logger      *zap.SugaredLogger
 	workingPath string
 	jobID       string
 	config      map[string]string
@@ -38,13 +41,18 @@ func (p *ResearchPlugin) Version() string        { return researchPluginVersion 
 func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Response, error) {
 	message := api.GetStringParameter("message", request, "")
 	if message == "" {
+		p.logger.Warnw("message parameter is required")
 		return api.NewFailedResponse("message parameter is required"), nil
 	}
 
 	systemPrompt := api.GetStringParameter("system_prompt", request, "")
 
+	websearchType := p.config["websearch_type"]
+	p.logger.Infow("research plugin started", "message_len", len(message), "has_system_prompt", systemPrompt != "", "websearch_type", websearchType)
+
 	llm, err := NewLLMClient(p.config)
 	if err != nil {
+		p.logger.Warnw("create LLM client failed", "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
@@ -57,6 +65,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		apiKey := p.config["pse_api_key"]
 		if engineID != "" && apiKey != "" {
 			rsTools = append(rsTools, NewPSEWebSearchTool(engineID, apiKey)...)
+			p.logger.Infow("PSE web search tool added", "engine_id", engineID)
 		}
 	}
 
@@ -72,9 +81,11 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 
 	content, _, err := CollectResponse(ctx, resp)
 	if err != nil {
+		p.logger.Warnw("collect response failed", "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
+	p.logger.Infow("research plugin completed", "result_len", len(content))
 	return api.NewResponseWithResult(map[string]any{
 		"result": content,
 	}), nil
@@ -82,6 +93,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 
 func NewResearchPlugin(ps types.PluginCall) types.Plugin {
 	return &ResearchPlugin{
+		logger:      logger.NewPluginLogger(researchPluginName, ps.JobID),
 		workingPath: ps.WorkingPath,
 		jobID:       ps.JobID,
 		config:      ps.Config,

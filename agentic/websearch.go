@@ -12,8 +12,10 @@ import (
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/basenana/friday/core/tools"
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/utils"
 	"github.com/hyponet/webpage-packer/packer"
+	"go.uber.org/zap"
 	"google.golang.org/api/customsearch/v1"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/option"
@@ -26,6 +28,7 @@ var (
 
 // NewPSEWebSearchTool https://programmablesearchengine.google.com/
 func NewPSEWebSearchTool(engineID, apiKey string) []*tools.Tool {
+	toolLogger := logger.NewPluginLogger("websearch", "").With(zap.String("engine_id", engineID))
 	return []*tools.Tool{
 		tools.NewTool(
 			"crawl_webpages",
@@ -35,7 +38,7 @@ func NewPSEWebSearchTool(engineID, apiKey string) []*tools.Tool {
 				tools.Items(map[string]interface{}{"type": "string", "description": "The exact url address you want to view，Do not make up addresses."}),
 				tools.Description("The urls need to be crawled, If you don't know the exact address, use a search engine FIRST."),
 			),
-			tools.WithToolHandler(crawlWebpagesHandler),
+			tools.WithToolHandler(crawlWebpagesHandler(toolLogger)),
 		),
 		tools.NewTool(
 			"web_search",
@@ -49,15 +52,16 @@ func NewPSEWebSearchTool(engineID, apiKey string) []*tools.Tool {
 				tools.Enum("day", "week", "month", "year", "anytime"),
 				tools.Description("The time range you want to search, (this) day/week/month/year, default: anytime"),
 			),
-			tools.WithToolHandler(pseSearchHandler(engineID, apiKey)),
+			tools.WithToolHandler(pseSearchHandler(toolLogger, engineID, apiKey)),
 		),
 	}
 }
 
-func pseSearchHandler(engineID, apiKey string) func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
+func pseSearchHandler(toolLogger *zap.SugaredLogger, engineID, apiKey string) func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
 	return func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
 		query, ok := request.Arguments["query"].(string)
 		if !ok || query == "" {
+			toolLogger.Warnw("missing required parameter: query")
 			return tools.NewToolResultError("missing required parameter: query"), nil
 		}
 
@@ -82,6 +86,8 @@ func pseSearchHandler(engineID, apiKey string) func(ctx context.Context, request
 			}
 		}
 
+		toolLogger.Infow("web_search started", "query", query, "time_range", dateRaw)
+
 		tp := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		if proxy := os.Getenv("HTTP_PROXY"); proxy != "" {
 			proxyUrl, err := url.Parse(proxy)
@@ -96,6 +102,7 @@ func pseSearchHandler(engineID, apiKey string) func(ctx context.Context, request
 
 		svc, err := customsearch.NewService(ctx, option.WithHTTPClient(cli))
 		if err != nil {
+			toolLogger.Warnw("create search service failed", "error", err)
 			return tools.NewToolResultError(err.Error()), nil
 		}
 
@@ -106,6 +113,7 @@ func pseSearchHandler(engineID, apiKey string) func(ctx context.Context, request
 
 		resp, err := doQuery.Num(10).Do()
 		if err != nil {
+			toolLogger.Warnw("search query failed", "error", err)
 			return tools.NewToolResultError(err.Error()), nil
 		}
 
@@ -118,81 +126,100 @@ func pseSearchHandler(engineID, apiKey string) func(ctx context.Context, request
 			})
 		}
 
+		toolLogger.Infow("web_search completed", "results_count", len(results))
 		return tools.NewToolResultText(tools.Res2Str(results)), nil
 	}
 }
 
-func crawlWebpagesHandler(ctx context.Context, request *tools.Request) (*tools.Result, error) {
-	urlList, ok := request.Arguments["url_list"].([]any)
-	if !ok || len(urlList) == 0 {
-		return tools.NewToolResultError("missing required parameter: url_list"), nil
-	}
-
-	var (
-		result = make(chan WebContent, len(urlList))
-		wg     = sync.WaitGroup{}
-		p      = packer.NewHtmlPacker()
-		bc     *packer.Browserless
-	)
-
-	if BrowserlessURL != "" {
-		bc = &packer.Browserless{
-			Endpoint:    BrowserlessURL,
-			Token:       BrowserlessToken,
-			StealthMode: true,
-			BlockADS:    true,
+func crawlWebpagesHandler(toolLogger *zap.SugaredLogger) func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
+	return func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
+		urlList, ok := request.Arguments["url_list"].([]any)
+		if !ok || len(urlList) == 0 {
+			toolLogger.Warnw("missing required parameter: url_list")
+			return tools.NewToolResultError("missing required parameter: url_list"), nil
 		}
-	}
 
-	for _, urlItem := range urlList {
-		wg.Add(1)
+		toolLogger.Infow("crawl_webpages started", "url_count", len(urlList))
 
-		go func(u string) {
-			defer wg.Done()
-			content, err := p.ReadContent(ctx, packer.Option{
-				URL:              u,
-				Timeout:          60,
-				ClutterFree:      true,
-				Browserless:      bc,
-				EnablePrivateNet: true,
-			})
+		var (
+			result = make(chan WebContent, len(urlList))
+			wg     = sync.WaitGroup{}
+			p      = packer.NewHtmlPacker()
+			bc     *packer.Browserless
+		)
 
-			if err != nil {
-				result <- WebContent{URL: u, Error: err.Error()}
-				return
+		if BrowserlessURL != "" {
+			bc = &packer.Browserless{
+				Endpoint:    BrowserlessURL,
+				Token:       BrowserlessToken,
+				StealthMode: true,
+				BlockADS:    true,
 			}
-
-			markdown, err := htmltomarkdown.ConvertString(content)
-			if err != nil {
-				result <- WebContent{URL: u, Content: content}
-				return
-			}
-			result <- WebContent{URL: u, Content: markdown}
-
-		}(urlItem.(string))
-
-	}
-	wg.Wait()
-	close(result)
-
-	contents := make([]WebContent, 0, len(urlList))
-	for content := range result {
-		if len([]rune(content.Content)) > 1000 {
-			n, err := request.Scratchpad.WriteNote(ctx, &tools.ScratchpadNote{
-				ID:      fmt.Sprintf("webpage-%s", utils.ComputeStructHash(content.URL, nil)),
-				Title:   fmt.Sprintf("the content of %s", content.URL),
-				Content: content.Content,
-			})
-			if err != nil {
-				return nil, err
-			}
-			content.Content = fmt.Sprintf("The content of web page %s was successfully saved in the scratchpad, note id: %s. "+
-				"Use tools to retrieve the original text if needed.", content.URL, n.ID)
 		}
-		contents = append(contents, content)
-	}
 
-	return tools.NewToolResultText(tools.Res2Str(contents)), nil
+		for _, urlItem := range urlList {
+			wg.Add(1)
+
+			go func(u string) {
+				defer wg.Done()
+				toolLogger.Debugw("crawling url", "url", u)
+				content, err := p.ReadContent(ctx, packer.Option{
+					URL:              u,
+					Timeout:          60,
+					ClutterFree:      true,
+					Browserless:      bc,
+					EnablePrivateNet: true,
+				})
+
+				if err != nil {
+					toolLogger.Warnw("crawl url failed", "url", u, "error", err)
+					result <- WebContent{URL: u, Error: err.Error()}
+					return
+				}
+
+				markdown, err := htmltomarkdown.ConvertString(content)
+				if err != nil {
+					toolLogger.Warnw("convert to markdown failed", "url", u, "error", err)
+					result <- WebContent{URL: u, Content: content}
+					return
+				}
+				toolLogger.Debugw("crawl url completed", "url", u, "content_len", len(markdown))
+				result <- WebContent{URL: u, Content: markdown}
+
+			}(urlItem.(string))
+
+		}
+		wg.Wait()
+		close(result)
+
+		contents := make([]WebContent, 0, len(urlList))
+		successCount := 0
+		errorCount := 0
+		for content := range result {
+			if len([]rune(content.Content)) > 1000 {
+				n, err := request.Scratchpad.WriteNote(ctx, &tools.ScratchpadNote{
+					ID:      fmt.Sprintf("webpage-%s", utils.ComputeStructHash(content.URL, nil)),
+					Title:   fmt.Sprintf("the content of %s", content.URL),
+					Content: content.Content,
+				})
+				if err != nil {
+					toolLogger.Warnw("write to scratchpad failed", "url", content.URL, "error", err)
+					return nil, err
+				}
+				content.Content = fmt.Sprintf("The content of web page %s was successfully saved in the scratchpad, note id: %s. "+
+					"Use tools to retrieve the original text if needed.", content.URL, n.ID)
+			}
+			if content.Error != "" {
+				errorCount++
+			} else {
+				successCount++
+			}
+			contents = append(contents, content)
+		}
+
+		toolLogger.Infow("crawl_webpages completed", "success_count", successCount, "error_count", errorCount)
+		return tools.NewToolResultText(tools.Res2Str(contents)), nil
+	}
 }
 
 type WebContent struct {

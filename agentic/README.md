@@ -16,7 +16,7 @@ ReAct (Reasoning + Action) agent with file access tools.
 **Name:** `react`
 
 ### 2. research
-Multi-step research agent that plans, researches, and summarizes.
+Multi-step research agent with file access and web search tools. Plans, researches, and summarizes.
 
 **Name:** `research`
 
@@ -27,20 +27,26 @@ Summarization agent for condensing content.
 
 ## Required Config
 
-All three plugins require the following config in `PluginCall.Config`:
-
 | Config Key | Required | Description |
 |------------|----------|-------------|
 | `llm_host` | Yes | LLM API endpoint (e.g., `https://api.openai.com/v1`) |
 | `llm_api_key` | Yes | LLM API key |
 | `llm_model` | Yes | Model name (e.g., `gpt-4o`, `gpt-4o-mini`) |
 
+### Research Plugin Additional Config
+
+| Config Key | Required | Description |
+|------------|----------|-------------|
+| `websearch_type` | No | Web search type (e.g., `pse` for Google Programmable Search Engine) |
+| `pse_engine_id` | Conditional | Google PSE Engine ID (required when websearch_type=pse) |
+| `pse_api_key` | Conditional | Google PSE API Key (required when websearch_type=pse) |
+
 ## Parameters
 
-| Parameter | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `message` | Yes | string | User message to process |
-| `system_prompt` | No | string | Custom system prompt |
+| Parameter | Required | Plugin | Type | Description |
+|-----------|----------|--------|------|-------------|
+| `message` | Yes | all | string | User message to process |
+| `system_prompt` | No | all | string | Custom system prompt |
 
 ## Output
 
@@ -50,9 +56,9 @@ All three plugins require the following config in `PluginCall.Config`:
 }
 ```
 
-## React Plugin - File Access Tools
+## Tools
 
-The React plugin includes built-in file access tools:
+### File Access Tools (react, research)
 
 | Tool | Description |
 |------|-------------|
@@ -60,8 +66,6 @@ The React plugin includes built-in file access tools:
 | `file_write` | Write content to a file |
 | `file_list` | List files in a directory |
 | `file_parse` | Parse document (PDF, HTML, Markdown, etc.) and extract text |
-
-### Tool Parameters
 
 #### file_read
 | Parameter | Required | Type | Description |
@@ -95,6 +99,37 @@ The React plugin includes built-in file access tools:
 
 **Supported formats:** PDF, HTML, Markdown, TXT, EPUB, WebArchive
 
+### Web Search Tools (research only, when websearch_type=pse)
+
+| Tool | Description |
+|------|-------------|
+| `web_search` | Search the internet using Google Programmable Search Engine |
+| `crawl_webpages` | Fetch and extract content from web pages |
+
+#### web_search
+| Parameter | Required | Type | Description |
+|-----------|----------|------|-------------|
+| `query` | Yes | string | Search query |
+| `time_range` | Yes | string | Time range: `day`, `week`, `month`, `year`, `anytime` |
+
+**Returns:** JSON array of search results with fields: `title`, `content`, `site`, `url`
+
+```json
+[
+  {"title": "Result Title", "content": "Result snippet...", "site": "example.com", "url": "https://..."}
+]
+```
+
+#### crawl_webpages
+| Parameter | Required | Type | Description |
+|-----------|----------|------|-------------|
+| `url_list` | Yes | array | List of URLs to crawl |
+
+**Returns:** JSON array of page content with fields: `url`, `content`, `error`
+
+- Content longer than 1000 characters is saved to scratchpad
+- Returns note ID reference instead of full content for long pages
+
 ## Usage Example
 
 ```yaml
@@ -108,11 +143,15 @@ The React plugin includes built-in file access tools:
     message: "Read the README.md file and summarize its contents"
     system_prompt: "You are a helpful assistant with file access"
 
-# Research Agent
+# Research Agent with web search
 - name: research
   config:
     llm_host: "https://api.openai.com/v1"
     llm_api_key: "your-api-key"
+    llm_model: "gpt-4o"
+    websearch_type: "pse"
+    pse_engine_id: "your-engine-id"
+    pse_api_key: "your-api-key"
   parameters:
     message: "Research the latest developments in quantum computing"
 
@@ -121,13 +160,16 @@ The React plugin includes built-in file access tools:
   config:
     llm_host: "https://api.openai.com/v1"
     llm_api_key: "your-api-key"
+    llm_model: "gpt-4o-mini"
   parameters:
     message: "Summarize the following article: ..."
 ```
 
 ## Notes
 
-- React plugin has file access restricted to the working directory
+- File access tools are restricted to the working directory
+- Research plugin requires additional config for web search functionality
 - All plugins use blocking mode (wait for complete response)
 - Custom system prompt is optional, defaults to Friday agent defaults
 - Research agent performs: Planning -> Research -> Summary workflow
+- Web search uses Google Programmable Search Engine (PSE)

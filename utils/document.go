@@ -18,9 +18,10 @@ package utils
 
 import (
 	"bytes"
-	"github.com/PuerkitoBio/goquery"
 	"regexp"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 var repeatSpace = regexp.MustCompile(`\s+`)
@@ -40,12 +41,12 @@ func ContentTrim(contentType, content string) string {
 }
 
 func GenerateContentAbstract(content string) string {
-	if subContent, err := slowPathContentSubContent([]byte(content)); err == nil && len(subContent) > 100 {
+	if subContent, err := quickPathContentSubContent([]byte(content)); err == nil && len(subContent) > 100 {
 		return subContent
 	}
 
-	content = ContentTrim("html", content)
-	subContents := strings.Split(content, "\n")
+	text := extractTextFromHTML(content)
+	subContents := strings.Split(text, "\n")
 	contents := make([]string, 0)
 	i := 0
 	for _, subContent := range subContents {
@@ -61,14 +62,16 @@ func GenerateContentAbstract(content string) string {
 	return strings.Join(contents, " ")
 }
 
-func slowPathContentSubContent(content []byte) (string, error) {
+func quickPathContentSubContent(content []byte) (string, error) {
 	query, err := goquery.NewDocumentFromReader(bytes.NewReader(content))
 	if err != nil {
 		return "", err
 	}
 
+	query.Find("script, style, noscript, iframe, nav, header, footer, aside").Remove()
+
 	contents := make([]string, 0)
-	query.Find("p").EachWithBreak(func(i int, selection *goquery.Selection) bool {
+	query.Find("p, article, section, li, td, th").EachWithBreak(func(i int, selection *goquery.Selection) bool {
 		if len(contents) > 10 {
 			return false
 		}
@@ -80,6 +83,23 @@ func slowPathContentSubContent(content []byte) (string, error) {
 	})
 
 	return trimDocumentContent(strings.Join(contents, " "), 400), nil
+}
+
+func extractTextFromHTML(content string) string {
+	query, err := goquery.NewDocumentFromReader(bytes.NewReader([]byte(content)))
+	if err != nil {
+		return ""
+	}
+
+	query.Find("script, style, noscript, iframe, nav, header, footer, aside").Remove()
+
+	text := strings.TrimSpace(query.Find("body").Text())
+	if text == "" {
+		text = strings.TrimSpace(query.Text())
+	}
+
+	text = repeatSpace.ReplaceAllString(text, " ")
+	return text
 }
 
 func trimDocumentContent(str string, m int) string {
