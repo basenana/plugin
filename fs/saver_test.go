@@ -456,6 +456,12 @@ type mockEntry struct {
 func NewMockNanaFS() *MockNanaFS {
 	return &MockNanaFS{entries: make(map[string]*mockEntry)}
 }
+func (m *MockNanaFS) CreateGroupIfNotExists(ctx context.Context, parentURI, group string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.entries[fmt.Sprintf("%s/%s", parentURI, group)] = &mockEntry{parentURI: parentURI, name: group}
+	return nil
+}
 
 func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, reader io.ReadCloser) error {
 	m.mu.Lock()
@@ -490,6 +496,16 @@ func (m *MockNanaFS) UpdateEntry(ctx context.Context, entryURI string, propertie
 	}
 
 	return nil
+}
+
+func (m *MockNanaFS) GetEntryProperties(ctx context.Context, entryURI string) (properties *types.Properties, err error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	en, ok := m.entries[entryURI]
+	if !ok {
+		return nil, fmt.Errorf("entry not found")
+	}
+	return &en.props, nil
 }
 
 // Test helpers
