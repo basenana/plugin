@@ -4,6 +4,9 @@ Go-Readability is a Go package that find the main readable content and the metad
 
 This package is based from [Readability.js] by [Mozilla] and written line by line to make sure it looks and works as similar as possible. This way, hopefully all web page that can be parsed by Readability.js are parse-able by go-readability as well.
 
+> [!WARNING]
+> This package is deprecated in favor of [codeberg.org/readeck/go-readability/v2](https://codeberg.org/readeck/go-readability/src/branch/v2).
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
@@ -15,7 +18,9 @@ This package is based from [Readability.js] by [Mozilla] and written line by lin
 
 ## Status
 
-This package is stable enough for use and up to date with Readability.js [v0.4.4][last-version] (commit [`b359811`][last-commit]).
+This package is stable enough for use and up to date with [Readability.js v0.5.0][last-version].
+
+For compatibility with Readability.js v0.6, use [codeberg.org/readeck/go-readability/v2](https://codeberg.org/readeck/go-readability/src/branch/v2).
 
 ## Installation
 
@@ -89,6 +94,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	readability "github.com/go-shiori/go-readability"
 )
@@ -103,19 +109,24 @@ var (
 )
 
 func main() {
-	for _, url := range urls {
-		resp, err := http.Get(url)
+	for _, u := range urls {
+		resp, err := http.Get(u)
 		if err != nil {
-			log.Fatalf("failed to download %s: %v\n", url, err)
+			log.Fatalf("failed to download %s: %v\n", u, err)
 		}
 		defer resp.Body.Close()
 
-		article, err := readability.FromReader(resp.Body, url)
+		parsedURL, err := url.Parse(u)
 		if err != nil {
-			log.Fatalf("failed to parse %s: %v\n", url, err)
+			log.Fatalf("error parsing url")
 		}
 
-		fmt.Printf("URL     : %s\n", url)
+		article, err := readability.FromReader(resp.Body, parsedURL)
+		if err != nil {
+			log.Fatalf("failed to parse %s: %v\n", u, err)
+		}
+
+		fmt.Printf("URL     : %s\n", u)
 		fmt.Printf("Title   : %s\n", article.Title)
 		fmt.Printf("Author  : %s\n", article.Byline)
 		fmt.Printf("Length  : %d\n", article.Length)
@@ -126,6 +137,7 @@ func main() {
 		fmt.Println()
 	}
 }
+
 ```
 
 ## Command Line Usage
@@ -133,7 +145,7 @@ func main() {
 You can also use `go-readability` as command line app. To do that, first install the CLI :
 
 ```
-go get -u -v github.com/go-shiori/go-readability/cmd/...
+go install github.com/go-shiori/go-readability/cmd/go-readability@latest
 ```
 
 Now you can use it by running `go-readability` in your terminal :
@@ -148,8 +160,10 @@ Usage:
   go-readability [flags] source
 
 Flags:
-  -h, --help       help for go-readability
-  -m, --metadata   only print the page's metadata
+  -h, --help          help for go-readability
+  -l, --http string   start the http server at the specified address
+  -m, --metadata      only print the page's metadata
+  -t, --text          only print the page's text
 ```
 
 ## Licenses
@@ -164,6 +178,5 @@ Go-Readability is distributed under [MIT license][mit], which means you can use 
 [kofi-badge]: https://img.shields.io/static/v1?label=&message=Ko-fi&color=F16061&logo=ko-fi&logoColor=white
 [readability.js]: https://github.com/mozilla/readability
 [mozilla]: https://github.com/mozilla
-[last-version]: https://github.com/mozilla/readability/tree/0.4.4
-[last-commit]: https://github.com/mozilla/readability/commit/b359811927a4bb2323eba085be004978fb18a926
+[last-version]: https://github.com/mozilla/readability/tree/0.5.0
 [mit]: https://choosealicense.com/licenses/mit/
