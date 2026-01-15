@@ -20,6 +20,8 @@ import (
 	"archive/zip"
 	"context"
 	"testing"
+
+	"github.com/basenana/plugin/logger"
 )
 
 func createTestEPUB(t *testing.T, path string, title, author, content string) {
@@ -110,8 +112,9 @@ func TestEPUB_Load_InvalidFile(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
+	ctx := logger.IntoContext(context.Background(), logger.NewLogger("test"))
 	parser := NewEPUB("invalid.epub", nil)
-	_, err := parser.Load(nil)
+	_, err := parser.Load(ctx)
 	if err == nil {
 		t.Error("Load should fail for invalid EPUB")
 	}

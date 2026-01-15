@@ -17,8 +17,10 @@
 package docloader
 
 import (
+	"context"
 	"testing"
 
+	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
 )
 
@@ -167,7 +169,8 @@ More content here.`
 
 	absPath, _ := testFileAccess.GetAbsPath("test.txt")
 	parser := NewText(absPath, nil)
-	doc, err := parser.Load(nil)
+	ctx := logger.IntoContext(context.Background(), logger.NewLogger("test"))
+	doc, err := parser.Load(ctx)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -189,7 +192,8 @@ func TestText_Load_WithFileNameMetadata(t *testing.T) {
 
 	absPath, _ := testFileAccess.GetAbsPath("Author_Title_2024.txt")
 	parser := NewText(absPath, nil)
-	doc, err := parser.Load(nil)
+	ctx := logger.IntoContext(context.Background(), logger.NewLogger("test"))
+	doc, err := parser.Load(ctx)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -216,7 +220,8 @@ Some **formatted** content.`
 
 	absPath, _ := testFileAccess.GetAbsPath("document.md")
 	parser := NewText(absPath, nil)
-	doc, err := parser.Load(nil)
+	ctx := logger.IntoContext(context.Background(), logger.NewLogger("test"))
+	doc, err := parser.Load(ctx)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

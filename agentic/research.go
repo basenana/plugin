@@ -2,12 +2,15 @@ package agentic
 
 import (
 	"context"
+	"strings"
 
 	"github.com/basenana/friday/core/agents/research"
 	fridayapi "github.com/basenana/friday/core/api"
+	"github.com/basenana/friday/core/memory"
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
+	"github.com/basenana/plugin/utils"
 	"go.uber.org/zap"
 )
 
@@ -28,10 +31,11 @@ var ResearchPluginSpec = types.PluginSpec{
 }
 
 type ResearchPlugin struct {
-	logger      *zap.SugaredLogger
-	workingPath string
-	jobID       string
-	config      map[string]string
+	workingPath  string
+	jobID        string
+	config       map[string]string
+	webCitations *WebCitations
+	logger       *zap.SugaredLogger
 }
 
 func (p *ResearchPlugin) Name() string           { return researchPluginName }
@@ -47,8 +51,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 
 	systemPrompt := api.GetStringParameter("system_prompt", request, "")
 
-	websearchType := p.config["friday_websearch_type"]
-	p.logger.Infow("research plugin started", "message_len", len(message), "has_system_prompt", systemPrompt != "", "websearch_type", websearchType)
+	p.logger.Infow("research plugin started", "message_len", len(message), "has_system_prompt", systemPrompt != "")
 
 	llm, err := NewLLMClient(p.config)
 	if err != nil {
@@ -56,7 +59,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
-	rsTools := FileAccessTools(p.workingPath)
+	rsTools := FileAccessTools(p.workingPath, p.logger)
 
 	// Check for websearch_type config and add corresponding tools
 	switch p.config["friday_websearch_type"] {
@@ -64,7 +67,7 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 		engineID := p.config["friday_pse_engine_id"]
 		apiKey := p.config["friday_pse_api_key"]
 		if engineID != "" && apiKey != "" {
-			rsTools = append(rsTools, NewPSEWebSearchTool(engineID, apiKey)...)
+			rsTools = append(rsTools, NewPSEWebSearchTool(engineID, apiKey, p.webCitations, p.logger)...)
 			p.logger.Infow("PSE web search tool added", "engine_id", engineID)
 		}
 	}
@@ -76,26 +79,34 @@ func (p *ResearchPlugin) Run(ctx context.Context, request *api.Request) (*api.Re
 
 	resp := agent.Chat(ctx, &fridayapi.Request{
 		Session:     NewSession(p.jobID),
+		Memory:      memory.NewEmpty(p.jobID),
 		UserMessage: message,
 	})
 
-	content, _, err := CollectResponse(ctx, resp)
+	content, err := fridayapi.ReadAllContent(ctx, resp)
 	if err != nil {
 		p.logger.Warnw("collect response failed", "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
+	var citations = make([]any, 0, len(p.webCitations.files))
+	for _, c := range p.webCitations.files {
+		citations = append(citations, utils.MarshalMap(c))
+	}
+
 	p.logger.Infow("research plugin completed", "result_len", len(content))
 	return api.NewResponseWithResult(map[string]any{
-		"result": content,
+		"result":    strings.TrimSpace(content),
+		"citations": citations,
 	}), nil
 }
 
 func NewResearchPlugin(ps types.PluginCall) types.Plugin {
 	return &ResearchPlugin{
-		logger:      logger.NewPluginLogger(researchPluginName, ps.JobID),
-		workingPath: ps.WorkingPath,
-		jobID:       ps.JobID,
-		config:      ps.Config,
+		logger:       logger.NewPluginLogger(researchPluginName, ps.JobID),
+		workingPath:  ps.WorkingPath,
+		jobID:        ps.JobID,
+		config:       ps.Config,
+		webCitations: newWebCitations(ps.WorkingPath),
 	}
 }

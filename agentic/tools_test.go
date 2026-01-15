@@ -35,7 +35,7 @@ func init() {
 func newTools(t *testing.T) (*utils.FileAccess, []*fridaytools.Tool) {
 	workdir := t.TempDir()
 	fileAccess := utils.NewFileAccess(workdir)
-	tools := FileAccessTools(workdir)
+	tools := FileAccessTools(workdir, logger.NewLogger("test"))
 	return fileAccess, tools
 }
 

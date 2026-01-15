@@ -13,9 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func FileAccessTools(workdir string) []*fridaytools.Tool {
+func FileAccessTools(workdir string, toolLogger *zap.SugaredLogger) []*fridaytools.Tool {
 	fileAccess := utils.NewFileAccess(workdir)
-	toolLogger := logger.NewPluginLogger("file_tools", "").With(zap.String("workdir", workdir))
 	return []*fridaytools.Tool{
 		NewFileReadTool(fileAccess, toolLogger),
 		NewFileWriteTool(fileAccess, toolLogger),
@@ -95,7 +94,7 @@ func NewFileWriteTool(fileAccess *utils.FileAccess, toolLogger *zap.SugaredLogge
 func NewFileListTool(fileAccess *utils.FileAccess, toolLogger *zap.SugaredLogger) *fridaytools.Tool {
 	type fileInfo struct {
 		Name     string `json:"name"`
-		Size     int64  `json:"size"`
+		Size     string `json:"size"`
 		Modified string `json:"modified"`
 		IsDir    bool   `json:"is_dir"`
 	}
@@ -131,7 +130,7 @@ func NewFileListTool(fileAccess *utils.FileAccess, toolLogger *zap.SugaredLogger
 				}
 				list = append(list, fileInfo{
 					Name:     relPath,
-					Size:     info.Size(),
+					Size:     formatSize(info.Size()),
 					Modified: info.ModTime().Format("2006-01-02 15:04:05"),
 					IsDir:    info.IsDir(),
 				})
@@ -178,7 +177,7 @@ func NewFileParseTool(fileAccess *utils.FileAccess, toolLogger *zap.SugaredLogge
 				return fridaytools.NewToolResultError(fmt.Sprintf("unsupported file format: %s", filepath.Ext(path))), nil
 			}
 
-			doc, err := parser.Load(ctx)
+			doc, err := parser.Load(logger.IntoContext(ctx, toolLogger))
 			if err != nil {
 				toolLogger.Warnw("file_parse failed", "path", path, "error", err)
 				return fridaytools.NewToolResultError(err.Error()), nil

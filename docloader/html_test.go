@@ -17,8 +17,11 @@
 package docloader
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/basenana/plugin/logger"
 )
 
 func TestHTML_ExtractMetadata(t *testing.T) {
@@ -163,7 +166,8 @@ func TestHTML_Load(t *testing.T) {
 
 	absPath, _ := testFileAccess.GetAbsPath("load_test.html")
 	parser := NewHTML(absPath, nil)
-	doc, err := parser.Load(nil)
+	ctx := logger.IntoContext(context.Background(), logger.NewLogger("test"))
+	doc, err := parser.Load(ctx)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}

@@ -3,32 +3,23 @@ package agentic
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"sync"
 	"time"
 
-	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/basenana/friday/core/tools"
-	"github.com/basenana/plugin/logger"
-	"github.com/basenana/plugin/utils"
-	"github.com/hyponet/webpage-packer/packer"
+	"github.com/basenana/plugin/web"
 	"go.uber.org/zap"
 	"google.golang.org/api/customsearch/v1"
 	"google.golang.org/api/googleapi/transport"
 	"google.golang.org/api/option"
 )
 
-var (
-	BrowserlessURL   = os.Getenv("BROWSERLESS_URL")
-	BrowserlessToken = os.Getenv("BROWSERLESS_TOKEN")
-)
-
 // NewPSEWebSearchTool https://programmablesearchengine.google.com/
-func NewPSEWebSearchTool(engineID, apiKey string) []*tools.Tool {
-	toolLogger := logger.NewPluginLogger("websearch", "").With(zap.String("engine_id", engineID))
+func NewPSEWebSearchTool(engineID, apiKey string, wc *WebCitations, toolLogger *zap.SugaredLogger) []*tools.Tool {
 	return []*tools.Tool{
 		tools.NewTool(
 			"crawl_webpages",
@@ -38,7 +29,7 @@ func NewPSEWebSearchTool(engineID, apiKey string) []*tools.Tool {
 				tools.Items(map[string]interface{}{"type": "string", "description": "The exact url address you want to view，Do not make up addresses."}),
 				tools.Description("The urls need to be crawled, If you don't know the exact address, use a search engine FIRST."),
 			),
-			tools.WithToolHandler(crawlWebpagesHandler(toolLogger)),
+			tools.WithToolHandler(crawlWebpagesHandler(wc, toolLogger)),
 		),
 		tools.NewTool(
 			"web_search",
@@ -72,24 +63,27 @@ func pseSearchHandler(toolLogger *zap.SugaredLogger, engineID, apiKey string) fu
 
 		dateRaw, ok := request.Arguments["time_range"]
 		if ok {
-			switch dateRaw.(string) {
-			case "day":
-				dateRestrict = "d1"
-			case "week":
-				dateRestrict = "w1"
-			case "month":
-				dateRestrict = "m1"
-			case "year":
-				dateRestrict = "y1"
-			default:
-				dateRestrict = "" // anytime
+			dateStr, ok := dateRaw.(string)
+			if ok {
+				switch dateStr {
+				case "day":
+					dateRestrict = "d1"
+				case "week":
+					dateRestrict = "w1"
+				case "month":
+					dateRestrict = "m1"
+				case "year":
+					dateRestrict = "y1"
+				default:
+					dateRestrict = "" // anytime
+				}
 			}
 		}
 
 		toolLogger.Infow("web_search started", "query", query, "time_range", dateRaw)
 
 		tp := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-		if proxy := os.Getenv("HTTP_PROXY"); proxy != "" {
+		if proxy := os.Getenv("GOOGLE_PROXY"); proxy != "" {
 			proxyUrl, err := url.Parse(proxy)
 			if err == nil {
 				tp.Proxy = http.ProxyURL(proxyUrl)
@@ -131,7 +125,7 @@ func pseSearchHandler(toolLogger *zap.SugaredLogger, engineID, apiKey string) fu
 	}
 }
 
-func crawlWebpagesHandler(toolLogger *zap.SugaredLogger) func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
+func crawlWebpagesHandler(wc *WebCitations, toolLogger *zap.SugaredLogger) func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
 	return func(ctx context.Context, request *tools.Request) (*tools.Result, error) {
 		urlList, ok := request.Arguments["url_list"].([]any)
 		if !ok || len(urlList) == 0 {
@@ -142,76 +136,49 @@ func crawlWebpagesHandler(toolLogger *zap.SugaredLogger) func(ctx context.Contex
 		toolLogger.Infow("crawl_webpages started", "url_count", len(urlList))
 
 		var (
-			result = make(chan WebContent, len(urlList))
-			wg     = sync.WaitGroup{}
-			p      = packer.NewHtmlPacker()
-			bc     *packer.Browserless
+			result       = make(chan WebContent, len(urlList))
+			wg           = sync.WaitGroup{}
+			successCount = 0
+			errorCount   = 0
 		)
 
-		if BrowserlessURL != "" {
-			bc = &packer.Browserless{
-				Endpoint:    BrowserlessURL,
-				Token:       BrowserlessToken,
-				StealthMode: true,
-				BlockADS:    true,
-			}
-		}
-
 		for _, urlItem := range urlList {
+			urlStr, ok := urlItem.(string)
+			if !ok {
+				errorCount++
+				continue
+			}
 			wg.Add(1)
 
 			go func(u string) {
 				defer wg.Done()
 				toolLogger.Debugw("crawling url", "url", u)
-				content, err := p.ReadContent(ctx, packer.Option{
-					URL:              u,
-					Timeout:          60,
-					ClutterFree:      true,
-					Browserless:      bc,
-					EnablePrivateNet: true,
-				})
 
+				filePath, err := web.PackFromURL(ctx, "", u, "html", wc.workdir, true)
 				if err != nil {
 					toolLogger.Warnw("crawl url failed", "url", u, "error", err)
 					result <- WebContent{URL: u, Error: err.Error()}
 					return
 				}
 
-				markdown, err := htmltomarkdown.ConvertString(content)
-				if err != nil {
-					toolLogger.Warnw("convert to markdown failed", "url", u, "error", err)
-					result <- WebContent{URL: u, Content: content}
-					return
-				}
-				toolLogger.Debugw("crawl url completed", "url", u, "content_len", len(markdown))
-				result <- WebContent{URL: u, Content: markdown}
+				toolLogger.Debugw("crawl url completed", "url", u, "file", path.Base(filePath))
+				result <- WebContent{URL: u, FilePath: filePath}
 
-			}(urlItem.(string))
-
+			}(urlStr)
 		}
 		wg.Wait()
 		close(result)
 
 		contents := make([]WebContent, 0, len(urlList))
-		successCount := 0
-		errorCount := 0
 		for content := range result {
-			if len([]rune(content.Content)) > 1000 {
-				n, err := request.Scratchpad.WriteNote(ctx, &tools.ScratchpadNote{
-					ID:      fmt.Sprintf("webpage-%s", utils.ComputeStructHash(content.URL, nil)),
-					Title:   fmt.Sprintf("the content of %s", content.URL),
-					Content: content.Content,
-				})
-				if err != nil {
-					toolLogger.Warnw("write to scratchpad failed", "url", content.URL, "error", err)
-					return nil, err
-				}
-				content.Content = fmt.Sprintf("The content of web page %s was successfully saved in the scratchpad, note id: %s. "+
-					"Use tools to retrieve the original text if needed.", content.URL, n.ID)
-			}
 			if content.Error != "" {
 				errorCount++
 			} else {
+				wc.files = append(wc.files, WebFile{
+					Filepath: content.FilePath,
+					URL:      content.URL,
+				})
+				content.FilePath = path.Base(content.FilePath) // remove workdir
 				successCount++
 			}
 			contents = append(contents, content)
@@ -223,9 +190,9 @@ func crawlWebpagesHandler(toolLogger *zap.SugaredLogger) func(ctx context.Contex
 }
 
 type WebContent struct {
-	URL     string `json:"url"`
-	Content string `json:"content,omitempty"`
-	Error   string `json:"error,omitempty"`
+	URL      string `json:"url"`
+	FilePath string `json:"file_path"`
+	Error    string `json:"error,omitempty"`
 }
 
 type WebSearchItem struct {
@@ -233,4 +200,18 @@ type WebSearchItem struct {
 	Content string `json:"content"`
 	Site    string `json:"site,omitempty"`
 	URL     string `json:"url"`
+}
+
+type WebCitations struct {
+	workdir string
+	files   []WebFile
+}
+
+func newWebCitations(workdir string) *WebCitations {
+	return &WebCitations{workdir: workdir, files: make([]WebFile, 0)}
+}
+
+type WebFile struct {
+	Filepath string `json:"file_path"`
+	URL      string `json:"url"`
 }

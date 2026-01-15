@@ -41,31 +41,9 @@ func ContentTrim(contentType, content string) string {
 }
 
 func GenerateContentAbstract(content string) string {
-	if subContent, err := quickPathContentSubContent([]byte(content)); err == nil && len(subContent) > 100 {
-		return subContent
-	}
-
-	text := extractTextFromHTML(content)
-	subContents := strings.Split(text, "\n")
-	contents := make([]string, 0)
-	i := 0
-	for _, subContent := range subContents {
-		subContent = strings.TrimSpace(subContent)
-		if subContent != "" {
-			contents = append(contents, subContent)
-			i++
-			if i >= 3 {
-				break
-			}
-		}
-	}
-	return strings.Join(contents, " ")
-}
-
-func quickPathContentSubContent(content []byte) (string, error) {
-	query, err := goquery.NewDocumentFromReader(bytes.NewReader(content))
+	query, err := goquery.NewDocumentFromReader(bytes.NewReader([]byte(content)))
 	if err != nil {
-		return "", err
+		return ""
 	}
 
 	query.Find("script, style, noscript, iframe, nav, header, footer, aside").Remove()
@@ -82,24 +60,12 @@ func quickPathContentSubContent(content []byte) (string, error) {
 		return true
 	})
 
-	return trimDocumentContent(strings.Join(contents, " "), 400), nil
-}
-
-func extractTextFromHTML(content string) string {
-	query, err := goquery.NewDocumentFromReader(bytes.NewReader([]byte(content)))
-	if err != nil {
-		return ""
+	if len(contents) > 0 {
+		return trimDocumentContent(strings.Join(contents, " "), 400)
 	}
 
-	query.Find("script, style, noscript, iframe, nav, header, footer, aside").Remove()
-
-	text := strings.TrimSpace(query.Find("body").Text())
-	if text == "" {
-		text = strings.TrimSpace(query.Text())
-	}
-
-	text = repeatSpace.ReplaceAllString(text, " ")
-	return text
+	bodyContent := query.Find("body").Text()
+	return trimDocumentContent(bodyContent, 400)
 }
 
 func trimDocumentContent(str string, m int) string {

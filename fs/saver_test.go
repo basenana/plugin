@@ -456,10 +456,10 @@ type mockEntry struct {
 func NewMockNanaFS() *MockNanaFS {
 	return &MockNanaFS{entries: make(map[string]*mockEntry)}
 }
-func (m *MockNanaFS) CreateGroupIfNotExists(ctx context.Context, parentURI, group string) error {
+func (m *MockNanaFS) CreateGroupIfNotExists(ctx context.Context, parentURI, group string, properties types.Properties) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.entries[fmt.Sprintf("%s/%s", parentURI, group)] = &mockEntry{parentURI: parentURI, name: group}
+	m.entries[fmt.Sprintf("%s/%s", parentURI, group)] = &mockEntry{parentURI: parentURI, name: group, props: properties}
 	return nil
 }
 

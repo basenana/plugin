@@ -2,9 +2,11 @@ package agentic
 
 import (
 	"context"
+	"strings"
 
 	"github.com/basenana/friday/core/agents/react"
 	fridayapi "github.com/basenana/friday/core/api"
+	"github.com/basenana/friday/core/memory"
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
 	"github.com/basenana/plugin/types"
@@ -51,8 +53,7 @@ func (p *ReactPlugin) Run(ctx context.Context, request *api.Request) (*api.Respo
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
-	tools := FileAccessTools(p.workingPath)
-
+	tools := FileAccessTools(p.workingPath, p.logger)
 	agent := react.New("react", "ReAct Agent with file access", llm, react.Option{
 		SystemPrompt: systemPrompt,
 		Tools:        tools,
@@ -60,19 +61,18 @@ func (p *ReactPlugin) Run(ctx context.Context, request *api.Request) (*api.Respo
 
 	resp := agent.Chat(ctx, &fridayapi.Request{
 		Session:     NewSession(p.jobID),
+		Memory:      memory.NewEmpty(p.jobID),
 		UserMessage: message,
 	})
 
-	content, _, err := CollectResponse(ctx, resp)
+	content, err := fridayapi.ReadAllContent(ctx, resp)
 	if err != nil {
 		p.logger.Warnw("collect response failed", "error", err)
 		return api.NewFailedResponse(err.Error()), nil
 	}
 
 	p.logger.Infow("react plugin completed", "result_len", len(content))
-	return api.NewResponseWithResult(map[string]any{
-		"result": content,
-	}), nil
+	return api.NewResponseWithResult(map[string]any{"result": strings.TrimSpace(content)}), nil
 }
 
 func NewReactPlugin(ps types.PluginCall) types.Plugin {
