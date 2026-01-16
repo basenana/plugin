@@ -17,6 +17,7 @@ Saves a local file to the NanaFS file system with metadata.
 | `subgroup_overview` | No       | -        | Sub group overview document file path             |
 | `properties`        | No       | -        | Properties map (flat structure)                   |
 | `document`          | No       | -        | Document struct from docloader                    |
+| `summary`          | No       | -        | Summarization text (AI-generated)                  |
 
 **Properties fields**:
 
@@ -34,6 +35,8 @@ Saves a local file to the NanaFS file system with metadata.
 - `unread` - Mark as unread (default: false)
 - `marked` - Mark as starred (default: false)
 - `publish_at` - Publish timestamp (Unix)
+- `summarize` - AI-generated summary text (agentic feature)
+- `group_overview` - Group overview file name
 
 **Properties structure** (flat, not nested):
 
@@ -42,6 +45,7 @@ Saves a local file to the NanaFS file system with metadata.
   "file_path": "/path/to/document.pdf",
   "name": "My Document",
   "parent_uri": "123",
+  "summary": "AI-generated summary here...",
   "properties": {
     "title": "Document Title",
     "author": "Author Name",
@@ -74,12 +78,14 @@ Updates an existing entry in NanaFS.
 | `entry_uri`  | Yes      | -       | Entry URI (numeric ID)          |
 | `properties` | No       | -       | Properties map (flat structure) |
 | `document`   | No       | -       | Document struct from docloader  |
+| `summary`   | No       | -       | Summarization text (AI-generated)  |
 
 **Properties structure** (flat, not nested):
 
 ```json
 {
   "entry_uri": "123",
+  "summary": "Updated AI summary...",
   "properties": {
     "title": "Updated Title",
     "marked": true

@@ -69,6 +69,7 @@ func (p *Saver) Run(ctx context.Context, request *api.Request) (*api.Response, e
 	}
 
 	if subGroup != "" {
+		subGroup = utils.SanitizeFilename(subGroup)
 		subGroupOverview := api.GetStringParameter("subgroup_overview", request, "")
 		if subGroupOverview != "" {
 			subGroupOverview = path.Base(subGroupOverview)
