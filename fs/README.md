@@ -8,16 +8,15 @@ File system plugins for NanaFS operations.
 
 Saves a local file to the NanaFS file system with metadata.
 
-| Parameter           | Required | Default  | Description                                       |
-|---------------------|----------|----------|---------------------------------------------------|
-| `file_path`         | Yes      | -        | Path to the local file                            |
-| `name`              | No       | filename | Entry name in NanaFS                              |
-| `parent_uri`        | Yes      | -        | Parent entry URI                                  |
-| `subgroup`          | No       | -        | Sub group name (creates nested group if provided) |
-| `subgroup_overview` | No       | -        | Sub group overview document file path             |
-| `properties`        | No       | -        | Properties map (flat structure)                   |
-| `document`          | No       | -        | Document struct from docloader                    |
-| `summary`          | No       | -        | Summarization text (AI-generated)                  |
+| Parameter    | Required | Default  | Description                                       |
+|--------------|----------|----------|---------------------------------------------------|
+| `file_path`  | Yes      | -        | Path to the local file                            |
+| `name`       | No       | filename | Entry name in NanaFS                              |
+| `parent_uri` | Yes      | -        | Parent entry URI                                  |
+| `subgroup`   | No       | -        | Sub group name (creates nested group if provided) |
+| `properties` | No       | -        | Properties map (flat structure)                   |
+| `document`   | No       | -        | Document struct from docloader                    |
+| `summary`    | No       | -        | Summarization text (AI-generated)                 |
 
 **Properties fields**:
 
@@ -73,12 +72,12 @@ Saves a local file to the NanaFS file system with metadata.
 
 Updates an existing entry in NanaFS.
 
-| Parameter    | Required | Default | Description                     |
-|--------------|----------|---------|---------------------------------|
-| `entry_uri`  | Yes      | -       | Entry URI (numeric ID)          |
-| `properties` | No       | -       | Properties map (flat structure) |
-| `document`   | No       | -       | Document struct from docloader  |
-| `summary`   | No       | -       | Summarization text (AI-generated)  |
+| Parameter    | Required | Default | Description                       |
+|--------------|----------|---------|-----------------------------------|
+| `entry_uri`  | Yes      | -       | Entry URI (numeric ID)            |
+| `properties` | No       | -       | Properties map (flat structure)   |
+| `document`   | No       | -       | Document struct from docloader    |
+| `summary`    | No       | -       | Summarization text (AI-generated) |
 
 **Properties structure** (flat, not nested):
 

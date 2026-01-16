@@ -63,7 +63,7 @@ func GenerateContentAbstract(content string) string {
 	})
 
 	if len(contents) > 0 {
-		if abs := trimDocumentContent(strings.Join(contents, " "), 400); abs != "" {
+		if abs := trimDocumentContent(strings.Join(contents, " "), 400); len([]rune(abs)) > 100 {
 			return abs
 		}
 	}
