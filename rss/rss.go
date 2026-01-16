@@ -186,13 +186,6 @@ func (r *RssSourcePlugin) syncRssSource(ctx context.Context, source rssSource) (
 		return nil, err
 	}
 
-	// using html file when using RSSHub
-	// https://github.com/DIYgod/RSSHub
-	if feed.Generator == "RSSHub" {
-		r.logger.Infow("using html file for RSSHub source")
-		source.FileType = archiveFileTypeHtml
-	}
-
 	var (
 		articles = make([]Article, 0)
 		links    []string
