@@ -123,18 +123,18 @@ func TestGenerateContentAbstract(t *testing.T) {
 			contains: []string{"Just plain text"},
 		},
 		{
-			name:    "truncates at 400 characters",
-			input:   `<p>` + strings.Repeat("word ", 100) + `</p>`,
-			maxLen:  400,
+			name:   "truncates at 400 characters",
+			input:  `<p>` + strings.Repeat("word ", 100) + `</p>`,
+			maxLen: 400,
 		},
 		{
-			name:    "handles unicode correctly",
-			input:   `<p>中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容</p>`,
-			maxLen:  400,
+			name:   "handles unicode correctly",
+			input:  `<p>中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容中文测试内容</p>`,
+			maxLen: 400,
 		},
 		{
-			name:    "falls back to body text",
-			input:   `<html><body><div>Direct body content here</div></body></html>`,
+			name:     "falls back to body text",
+			input:    `<html><body><div>Direct body content here</div></body></html>`,
 			contains: []string{"Direct body content here"},
 		},
 	}

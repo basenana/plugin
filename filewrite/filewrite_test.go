@@ -244,43 +244,43 @@ func TestFileWritePlugin_Run_EmptyContent(t *testing.T) {
 
 func TestResolvePath(t *testing.T) {
 	tests := []struct {
-		name        string
-		path        string
-		workingDir  string
-		want        string
-		wantErr     bool
+		name       string
+		path       string
+		workingDir string
+		want       string
+		wantErr    bool
 	}{
 		{
-			name:        "absolute path outside workdir",
-			path:        "/absolute/path/file.txt",
-			workingDir:  "/working",
-			wantErr:     true,
+			name:       "absolute path outside workdir",
+			path:       "/absolute/path/file.txt",
+			workingDir: "/working",
+			wantErr:    true,
 		},
 		{
-			name:        "relative path",
-			path:        "file.txt",
-			workingDir:  "/working",
-			want:        "/working/file.txt",
-			wantErr:     false,
+			name:       "relative path",
+			path:       "file.txt",
+			workingDir: "/working",
+			want:       "/working/file.txt",
+			wantErr:    false,
 		},
 		{
-			name:        "absolute path within workdir",
-			path:        "/working/dir/file.txt",
-			workingDir:  "/working",
-			want:        "/working/dir/file.txt",
-			wantErr:     false,
+			name:       "absolute path within workdir",
+			path:       "/working/dir/file.txt",
+			workingDir: "/working",
+			want:       "/working/dir/file.txt",
+			wantErr:    false,
 		},
 		{
-			name:        "path traversal rejected",
-			path:        "../outside.txt",
-			workingDir:  "/working",
-			wantErr:     true,
+			name:       "path traversal rejected",
+			path:       "../outside.txt",
+			workingDir: "/working",
+			wantErr:    true,
 		},
 		{
-			name:        "empty path rejected",
-			path:        "",
-			workingDir:  "/working",
-			wantErr:     true,
+			name:       "empty path rejected",
+			path:       "",
+			workingDir: "/working",
+			wantErr:    true,
 		},
 	}
 
