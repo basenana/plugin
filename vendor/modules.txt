@@ -136,7 +136,7 @@ github.com/googleapis/gax-go/v2/internallog/internal
 # github.com/gorilla/css v1.0.1
 ## explicit; go 1.20
 github.com/gorilla/css/scanner
-# github.com/hyponet/webpage-packer v1.1.1-0.20260115110708-cf1034fa3c7d
+# github.com/hyponet/webpage-packer v1.1.1-0.20260119120926-bf6896a97972
 ## explicit; go 1.24.0
 github.com/hyponet/webpage-packer/packer
 # github.com/invopop/jsonschema v0.13.0
