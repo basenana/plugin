@@ -481,7 +481,7 @@ func (m *MockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, prop
 	return nil
 }
 
-func (m *MockNanaFS) UpdateEntry(ctx context.Context, entryURI string, properties types.Properties) error {
+func (m *MockNanaFS) UpdateEntry(ctx context.Context, entryURI, content string, properties types.Properties) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

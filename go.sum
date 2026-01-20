@@ -62,6 +62,8 @@ github.com/hyponet/webpage-packer v1.1.1-0.20260115110708-cf1034fa3c7d h1:XRJuCa
 github.com/hyponet/webpage-packer v1.1.1-0.20260115110708-cf1034fa3c7d/go.mod h1:kun/dkSzcBXCG3GnZT36fRiFjpD8UFbw1mFygOFUjRo=
 github.com/hyponet/webpage-packer v1.1.1-0.20260119120926-bf6896a97972 h1:N3n5nZugXsPsEIXrOawLX65pQTnJeK3Rnw9YoVo/9Fc=
 github.com/hyponet/webpage-packer v1.1.1-0.20260119120926-bf6896a97972/go.mod h1:kun/dkSzcBXCG3GnZT36fRiFjpD8UFbw1mFygOFUjRo=
+github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892 h1:+T3kht7nTo3zKosP4cfsSFeLzbCXBg4O5UXfGQxFne0=
+github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892/go.mod h1:kun/dkSzcBXCG3GnZT36fRiFjpD8UFbw1mFygOFUjRo=
 github.com/invopop/jsonschema v0.13.0 h1:KvpoAJWEjR3uD9Kbm2HWJmqsEaHt8lBUpd0qHcIi21E=
 github.com/invopop/jsonschema v0.13.0/go.mod h1:ffZ5Km5SWWRAIN6wbDXItl95euhFz2uON45H2qjYt+0=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=

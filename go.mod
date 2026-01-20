@@ -7,7 +7,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/basenana/friday/core v0.0.0-20260115125134-20b35d6baae8
 	github.com/davecgh/go-spew v1.1.1
-	github.com/hyponet/webpage-packer v1.1.1-0.20260119120926-bf6896a97972
+	github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/mmcdole/gofeed v1.3.0
 	go.uber.org/zap v1.27.1
