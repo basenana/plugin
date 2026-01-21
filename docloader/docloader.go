@@ -19,6 +19,7 @@ package docloader
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -136,7 +137,7 @@ func (d *DocLoader) loadDocument(ctx context.Context, filePath string) (types.Do
 	}
 
 	var (
-		fileExt     = filepath.Ext(entryPath)
+		fileExt     = filepath.Ext(path.Base(filePath))
 		p           Parser
 		parseOption = map[string]string{}
 	)
@@ -162,7 +163,7 @@ func (d *DocLoader) loadDocument(ctx context.Context, filePath string) (types.Do
 	}
 
 	if doc.Properties.Title == "" {
-		doc.Properties.Title = strings.TrimSpace(strings.TrimSuffix(filePath, fileExt))
+		doc.Properties.Title = strings.TrimSpace(strings.TrimSuffix(path.Base(filePath), fileExt))
 	}
 
 	return doc, nil
