@@ -215,3 +215,34 @@ func TestDocLoader_Run_DefaultTitle(t *testing.T) {
 		t.Errorf("title = %v, want %v", props["title"], "my_custom_file")
 	}
 }
+
+func TestDocLoader_Run_DefaultTitle_FromNestedPath(t *testing.T) {
+	loader := newDocLoader(t)
+
+	content := `12345`
+
+	if err := testFileAccess.MkdirAll("nested.dir", 0755); err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+	if err := testFileAccess.Write("nested.dir/test_file.txt", []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Test with path containing dot in directory name
+	req := &api.Request{
+		Parameter: map[string]any{"file_path": "nested.dir/test_file.txt"},
+	}
+
+	resp, err := loader.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !resp.IsSucceed {
+		t.Fatalf("Run failed: %s", resp.Message)
+	}
+	doc := resp.Results["document"].(map[string]any)
+	props := doc["properties"].(map[string]any)
+	if props["title"] != "test_file" {
+		t.Errorf("title = %v, want %v (should not treat .dir as extension)", props["title"], "test_file")
+	}
+}
