@@ -17,6 +17,9 @@
 package rss
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"os"
 	"testing"
 
@@ -297,6 +300,7 @@ func TestRssSource_Struct(t *testing.T) {
 		ClutterFree: true,
 		Timeout:     120,
 		Headers:     make(map[string]string),
+		ParentURI:   "/test/parent",
 	}
 
 	if source.FeedUrl != "https://example.com/feed.xml" {
@@ -304,6 +308,9 @@ func TestRssSource_Struct(t *testing.T) {
 	}
 	if source.FileType != "webarchive" {
 		t.Errorf("expected FileType 'webarchive', got %s", source.FileType)
+	}
+	if source.ParentURI != "/test/parent" {
+		t.Errorf("expected ParentURI '/test/parent', got %s", source.ParentURI)
 	}
 }
 
@@ -318,4 +325,90 @@ func TestParseSiteURL_InvalidURL(t *testing.T) {
 		// This is expected - the URL parses as a valid URL structure
 		t.Log("parseSiteURL handles invalid-looking URLs gracefully")
 	}
+}
+
+func TestIsNew_WithFS(t *testing.T) {
+	fs := &mockNanaFSWithProps{}
+	source := rssSource{
+		ParentURI: "/test",
+		FS:        fs,
+	}
+
+	ctx := context.Background()
+
+	// Entry not found - should return true
+	isNew, err := source.isNew(ctx, "/test/nonexistent.html")
+	if err != nil {
+		t.Fatalf("isNew failed: %v", err)
+	}
+	if !isNew {
+		t.Errorf("expected isNew = true for nonexistent entry")
+	}
+
+	// Entry exists with title - should return false
+	fs.setProps("/test/existing.html", types.Properties{Title: "Test Article"})
+	isNew, err = source.isNew(ctx, "/test/existing.html")
+	if err != nil {
+		t.Fatalf("isNew failed: %v", err)
+	}
+	if isNew {
+		t.Errorf("expected isNew = false for existing entry")
+	}
+}
+
+// Mock NanaFS implementations for testing
+
+type mockNanaFS struct{}
+
+func (m *mockNanaFS) CreateGroupIfNotExists(ctx context.Context, parentURI, group string, properties types.Properties) error {
+	return nil
+}
+
+func (m *mockNanaFS) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, reader io.ReadCloser) error {
+	return nil
+}
+
+func (m *mockNanaFS) UpdateEntry(ctx context.Context, entryURI, content string, properties types.Properties) error {
+	return nil
+}
+
+func (m *mockNanaFS) GetEntryProperties(ctx context.Context, entryURI string) (properties *types.Properties, err error) {
+	return nil, fmt.Errorf("entry not found")
+}
+
+type mockNanaFSWithProps struct {
+	entries map[string]*types.Properties
+}
+
+func newMockNanaFSWithProps() *mockNanaFSWithProps {
+	return &mockNanaFSWithProps{
+		entries: make(map[string]*types.Properties),
+	}
+}
+
+func (m *mockNanaFSWithProps) setProps(entryURI string, props types.Properties) {
+	if m.entries == nil {
+		m.entries = make(map[string]*types.Properties)
+	}
+	m.entries[entryURI] = &props
+}
+
+func (m *mockNanaFSWithProps) CreateGroupIfNotExists(ctx context.Context, parentURI, group string, properties types.Properties) error {
+	return nil
+}
+
+func (m *mockNanaFSWithProps) SaveEntry(ctx context.Context, parentURI, name string, properties types.Properties, reader io.ReadCloser) error {
+	return nil
+}
+
+func (m *mockNanaFSWithProps) UpdateEntry(ctx context.Context, entryURI, content string, properties types.Properties) error {
+	return nil
+}
+
+func (m *mockNanaFSWithProps) GetEntryProperties(ctx context.Context, entryURI string) (properties *types.Properties, err error) {
+	props, ok := m.entries[entryURI]
+	if !ok {
+		return nil, fmt.Errorf("entry not found")
+	}
+	return props, nil
 }
