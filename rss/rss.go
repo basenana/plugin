@@ -416,7 +416,9 @@ type rssSource struct {
 func (s *rssSource) isNew(ctx context.Context, entryURI string) (bool, error) {
 	props, err := s.FS.GetEntryProperties(ctx, entryURI)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no entry") {
+		if strings.Contains(err.Error(), "not found") ||
+			strings.Contains(err.Error(), "no record") ||
+			strings.Contains(err.Error(), "no entry") {
 			return true, nil
 		}
 		return false, err
