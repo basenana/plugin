@@ -28,6 +28,8 @@ github.com/basenana/friday/core v0.0.0-20260210155822-4bee07d777ae h1:GXYlYpv+BJ
 github.com/basenana/friday/core v0.0.0-20260210155822-4bee07d777ae/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
 github.com/basenana/friday/core v0.0.0-20260213124837-97dfcc8ac17c h1:iSvxiTd7IjgpMZPwiO6+AWY8GUob/qzbQw+FatIveEA=
 github.com/basenana/friday/core v0.0.0-20260213124837-97dfcc8ac17c/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
+github.com/basenana/friday/core v0.0.0-20260214022505-dcdb4c7d9b93 h1:AVU5Uh37Va+NNdoRsiwulcNgMhlVH0fqQSGcfmvrnRE=
+github.com/basenana/friday/core v0.0.0-20260214022505-dcdb4c7d9b93/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
