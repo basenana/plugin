@@ -55,7 +55,7 @@ github.com/aymerick/douceur/parser
 # github.com/bahlo/generic-list-go v0.2.0
 ## explicit; go 1.18
 github.com/bahlo/generic-list-go
-# github.com/basenana/friday/core v0.0.0-20260214022505-dcdb4c7d9b93
+# github.com/basenana/friday/core v0.0.0-20260214064937-f8f23c7bae48
 ## explicit; go 1.24.7
 github.com/basenana/friday/core/agents
 github.com/basenana/friday/core/agents/summarize
