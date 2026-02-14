@@ -184,6 +184,7 @@ func (r *RssSourcePlugin) Run(ctx context.Context, request *api.Request) (*api.R
 	}
 
 	resp := api.NewResponseWithResult(map[string]any{"articles": articleMaps})
+	resp.Message = fmt.Sprintf("%d articles retrieved", len(articles))
 	return resp, nil
 }
 

@@ -22,6 +22,12 @@ github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPn
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
 github.com/basenana/friday/core v0.0.0-20260115125134-20b35d6baae8 h1:OUKWfr5Dm8fUiuCFwMNDDHiSo6RuleWaiWeWk+acG/Q=
 github.com/basenana/friday/core v0.0.0-20260115125134-20b35d6baae8/go.mod h1:gy5UmF/SN+5iFxIIA0+EIlvWN5j9XajshV4TuWUcy0s=
+github.com/basenana/friday/core v0.0.0-20260210153121-dc8132708f98 h1:zW5j0Hfe6Uvah+1xRCsHkIeUHASOVUFb70tV9KSe0ig=
+github.com/basenana/friday/core v0.0.0-20260210153121-dc8132708f98/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
+github.com/basenana/friday/core v0.0.0-20260210155822-4bee07d777ae h1:GXYlYpv+BJgMgMn9JPF0mB98yJ+FSI8KsQUQBZoEb6E=
+github.com/basenana/friday/core v0.0.0-20260210155822-4bee07d777ae/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
+github.com/basenana/friday/core v0.0.0-20260213124837-97dfcc8ac17c h1:iSvxiTd7IjgpMZPwiO6+AWY8GUob/qzbQw+FatIveEA=
+github.com/basenana/friday/core v0.0.0-20260213124837-97dfcc8ac17c/go.mod h1:7bkHbv4TevsOJeufGFzui9BrUt4M0+h3xDqxhn9wTOw=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
