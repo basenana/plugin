@@ -55,7 +55,7 @@ github.com/aymerick/douceur/parser
 # github.com/bahlo/generic-list-go v0.2.0
 ## explicit; go 1.18
 github.com/bahlo/generic-list-go
-# github.com/basenana/friday/core v0.0.0-20260214064937-f8f23c7bae48
+# github.com/basenana/friday/core v0.0.0-20260216144613-10317c82a056
 ## explicit; go 1.24.7
 github.com/basenana/friday/core/agents
 github.com/basenana/friday/core/agents/summarize
@@ -134,6 +134,10 @@ github.com/googleapis/gax-go/v2/internallog/internal
 # github.com/gorilla/css v1.0.1
 ## explicit; go 1.20
 github.com/gorilla/css/scanner
+# github.com/hyponet/eventbus v1.1.0
+## explicit; go 1.23
+github.com/hyponet/eventbus
+github.com/hyponet/eventbus/bus
 # github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892
 ## explicit; go 1.24.0
 github.com/hyponet/webpage-packer/packer
@@ -150,8 +154,6 @@ github.com/ledongthuc/pdf
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jwriter
-# github.com/mark3labs/mcp-go v0.43.2
-## explicit; go 1.23.0
 # github.com/microcosm-cc/bluemonday v1.0.27
 ## explicit; go 1.19
 github.com/microcosm-cc/bluemonday
@@ -195,8 +197,6 @@ github.com/openai/openai-go/responses
 github.com/openai/openai-go/shared
 github.com/openai/openai-go/shared/constant
 github.com/openai/openai-go/webhooks
-# github.com/spf13/cast v1.7.1
-## explicit; go 1.19
 # github.com/tidwall/gjson v1.14.4
 ## explicit; go 1.12
 github.com/tidwall/gjson
@@ -212,8 +212,6 @@ github.com/tidwall/sjson
 # github.com/wk8/go-ordered-map/v2 v2.1.8
 ## explicit; go 1.18
 github.com/wk8/go-ordered-map/v2
-# github.com/yosida95/uritemplate/v3 v3.0.2
-## explicit; go 1.14
 # github.com/yosssi/gohtml v0.0.0-20201013000340-ee4748c638f4
 ## explicit
 github.com/yosssi/gohtml
