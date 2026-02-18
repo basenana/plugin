@@ -55,7 +55,7 @@ github.com/aymerick/douceur/parser
 # github.com/bahlo/generic-list-go v0.2.0
 ## explicit; go 1.18
 github.com/bahlo/generic-list-go
-# github.com/basenana/friday/core v0.0.0-20260216144613-10317c82a056
+# github.com/basenana/friday/core v0.0.0-20260218090326-98e59fa86102
 ## explicit; go 1.24.7
 github.com/basenana/friday/core/agents
 github.com/basenana/friday/core/agents/summarize
@@ -136,8 +136,6 @@ github.com/googleapis/gax-go/v2/internallog/internal
 github.com/gorilla/css/scanner
 # github.com/hyponet/eventbus v1.1.0
 ## explicit; go 1.23
-github.com/hyponet/eventbus
-github.com/hyponet/eventbus/bus
 # github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892
 ## explicit; go 1.24.0
 github.com/hyponet/webpage-packer/packer

@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
 	github.com/PuerkitoBio/goquery v1.11.0
-	github.com/basenana/friday/core v0.0.0-20260216144613-10317c82a056
+	github.com/basenana/friday/core v0.0.0-20260218090326-98e59fa86102
 	github.com/davecgh/go-spew v1.1.1
 	github.com/hyponet/webpage-packer v1.1.1-0.20260120110819-ea684f94a892
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728

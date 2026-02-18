@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/basenana/plugin/api"
 	"github.com/basenana/plugin/logger"
@@ -337,7 +338,7 @@ func TestIsNew_WithFS(t *testing.T) {
 	ctx := context.Background()
 
 	// Entry not found - should return true
-	isNew, err := source.isNew(ctx, "/test/nonexistent.html")
+	isNew, err := source.isNew(ctx, "/test/nonexistent.html", time.Now())
 	if err != nil {
 		t.Fatalf("isNew failed: %v", err)
 	}
@@ -347,7 +348,7 @@ func TestIsNew_WithFS(t *testing.T) {
 
 	// Entry exists with title - should return false
 	fs.setProps("/test/existing.html", types.Properties{Title: "Test Article"})
-	isNew, err = source.isNew(ctx, "/test/existing.html")
+	isNew, err = source.isNew(ctx, "/test/existing.html", time.Now())
 	if err != nil {
 		t.Fatalf("isNew failed: %v", err)
 	}
