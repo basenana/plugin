@@ -419,11 +419,13 @@ type rssSource struct {
 }
 
 func (s *rssSource) isNew(ctx context.Context, entryURI string, updatedAt time.Time) (bool, error) {
-	parentURI, filename := path.Split(entryURI)
-	for _, pbUri := range []string{
-		entryURI, // new file uri
-		path.Join(parentURI, fmt.Sprintf("%d", updatedAt.Year()), filename), // archived file uri
-	} {
+	checkList := []string{entryURI}
+	if time.Now().Year() != updatedAt.Year() {
+		parentURI, filename := path.Split(entryURI)
+		checkList = append(checkList, path.Join(parentURI, fmt.Sprintf("%d", updatedAt.Year()), filename)) // archived file uri
+	}
+
+	for _, pbUri := range checkList {
 		props, err := s.FS.GetEntryProperties(ctx, pbUri)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") ||
